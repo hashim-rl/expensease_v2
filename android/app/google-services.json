@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "894658948129",
+    "project_id": "expensease-886ec",
+    "storage_bucket": "expensease-886ec.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:894658948129:android:e0c231d0e10bfd81298760",
+        "android_client_info": {
+          "package_name": "com.example.expensease"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "894658948129-catn5gg1eueeotlvmmq14ilkcqog8iui.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.expensease",
+            "certificate_hash": "1d2ca857fea4a2ba7b1185c11cf14e2ea89c37a4"
+          }
+        },
+        {
+          "client_id": "894658948129-6m8q6cdhk79svgcr2i1ce4u1q66enr3b.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBue8WWbb0aT_8u-qsgZd7EJth-Bq906AE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "894658948129-6m8q6cdhk79svgcr2i1ce4u1q66enr3b.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "894658948129-8ufs388gu5m2c21q7rc3kkrfhdlkheda.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.expensease"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
