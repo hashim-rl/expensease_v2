@@ -15,7 +15,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // A light background color to make the cards pop
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
         title: Obx(() => Text(controller.group.value?.name ?? 'Group')),
@@ -36,7 +35,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
-        // The main layout is now a Column containing our styled components
         return DefaultTabController(
           length: 2,
           child: Column(
@@ -72,7 +70,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
     );
   }
 
-  /// This is the new, stylish header card from the design.
   Widget _buildGroupHeaderCard() {
     return Container(
       width: double.infinity,
@@ -121,7 +118,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
     );
   }
 
-  /// This is the new, stylish list of expenses.
   Widget _buildExpenseList() {
     return Obx(() {
       if (controller.expenses.isEmpty) {
@@ -136,7 +132,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
         itemCount: controller.expenses.length,
         itemBuilder: (context, index) {
           final expense = controller.expenses[index];
-          // Each expense is now a styled card
           return FadeInUp(
             delay: Duration(milliseconds: index * 50),
             child: Card(
@@ -171,7 +166,6 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
     });
   }
 
-  /// This is the new, stylish list of member balances.
   Widget _buildBalancesView() {
     return Obx(() {
       final balances = controller.memberBalances.entries.toList();

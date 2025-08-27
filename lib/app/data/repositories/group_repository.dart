@@ -44,7 +44,6 @@ class GroupRepository {
     if (user == null) throw Exception("User not logged in");
 
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    // FIX: Corrected the typo from newGroup-Ref.id to newGroupRef.id
     final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
     final newGroup = GroupModel(
@@ -162,6 +161,21 @@ class GroupRepository {
       await groupRef.update({'name': newName});
     } catch (e) {
       throw Exception('Failed to update group name.');
+    }
+  }
+
+  /// --- NEW FUNCTION ---
+  /// Updates the role of a member within a group.
+  Future<void> updateMemberRole({
+    required String groupId,
+    required String memberId,
+    required String newRole,
+  }) async {
+    try {
+      final memberRef = _firebaseProvider.membersCollection(groupId).doc(memberId);
+      await memberRef.update({'role': newRole});
+    } catch (e) {
+      throw Exception('Failed to update member role.');
     }
   }
 }

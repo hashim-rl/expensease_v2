@@ -3,7 +3,6 @@ import 'package:get/get.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/modules/groups/controllers/members_controller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:expensease/app/shared/theme/app_colors.dart';
 
 class MembersPermissionsView extends GetView<MembersController> {
   const MembersPermissionsView({super.key});
@@ -11,31 +10,27 @@ class MembersPermissionsView extends GetView<MembersController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // The background color from your design
       backgroundColor: const Color(0xFFF0F4F8),
       appBar: AppBar(
         title: const Text("Group Settings"),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // The "Admin" chip from the design
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Obx(() => Chip(
               label: Text(
-                controller.currentUserRole.value, // Dynamically show user's role
+                controller.currentUserRole.value,
                 style: const TextStyle(
-                    color: AppColors.primaryBlue,
-                    fontWeight: FontWeight.bold),
+                    color: Colors.blueAccent, fontWeight: FontWeight.bold),
               ),
-              backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+              backgroundColor: Colors.blueAccent.withOpacity(0.1),
             )),
           )
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
-        // The main column now holds our three styled cards
         child: Column(
           children: [
             _buildEditNameCard(),
@@ -44,14 +39,13 @@ class MembersPermissionsView extends GetView<MembersController> {
             const SizedBox(height: 24),
             _buildMemberPermissionsCard(),
             const SizedBox(height: 24),
-            _buildDangerZoneCard(), // Added a section for deleting the group
+            _buildDangerZoneCard(),
           ],
         ),
       ),
     );
   }
 
-  /// Card for editing the group's name.
   Widget _buildEditNameCard() {
     return Card(
       elevation: 2.0,
@@ -89,7 +83,6 @@ class MembersPermissionsView extends GetView<MembersController> {
     );
   }
 
-  /// Card for managing expense categories.
   Widget _buildManageCategoriesCard() {
     return Card(
       elevation: 2.0,
@@ -102,11 +95,8 @@ class MembersPermissionsView extends GetView<MembersController> {
             const Text("Manage Bill Categories",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            // Placeholder categories
             _categoryRow(Icons.receipt_long_outlined, "Rent"),
             _categoryRow(Icons.local_gas_station_outlined, "Gas"),
-            _categoryRow(Icons.wifi, "Internet"),
-            _categoryRow(Icons.shopping_cart_outlined, "Groceries"),
             const Divider(height: 32),
             Row(
               children: [
@@ -118,9 +108,7 @@ class MembersPermissionsView extends GetView<MembersController> {
                 ),
                 const SizedBox(width: 8),
                 ElevatedButton(
-                  onPressed: () {
-                    // TODO: Implement add category logic
-                  },
+                  onPressed: () {},
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black87,
                     foregroundColor: Colors.white,
@@ -135,7 +123,6 @@ class MembersPermissionsView extends GetView<MembersController> {
     );
   }
 
-  /// A single row in the category list.
   Widget _categoryRow(IconData icon, String name) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -146,15 +133,12 @@ class MembersPermissionsView extends GetView<MembersController> {
           Expanded(child: Text(name, style: const TextStyle(fontSize: 16))),
           IconButton(
               icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
-              onPressed: () {
-                // TODO: Implement delete category logic
-              }),
+              onPressed: () {}),
         ],
       ),
     );
   }
 
-  /// Card for managing member roles and permissions.
   Widget _buildMemberPermissionsCard() {
     return Card(
       elevation: 2.0,
@@ -185,9 +169,7 @@ class MembersPermissionsView extends GetView<MembersController> {
             OutlinedButton.icon(
               icon: const Icon(Icons.person_add_alt_1_outlined),
               label: const Text("Add New Member"),
-              onPressed: () {
-                // TODO: Implement add member dialog
-              },
+              onPressed: _showAddMemberDialog,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
               ),
@@ -198,7 +180,6 @@ class MembersPermissionsView extends GetView<MembersController> {
     );
   }
 
-  /// A single row in the member list.
   Widget _memberRow(MemberModel member) {
     final bool isCurrentUser =
         member.id == FirebaseAuth.instance.currentUser?.uid;
@@ -212,12 +193,13 @@ class MembersPermissionsView extends GetView<MembersController> {
       trailing: Obx(() => DropdownButton<String>(
         value: member.role,
         underline: const SizedBox(),
-        // Only admins can change roles, and they can't change their own role
         onChanged: (controller.currentUserRole.value == 'Admin' && !isCurrentUser)
             ? (value) {
-          // TODO: Implement role change logic
+          if (value != null) {
+            controller.updateMemberRole(member.id, value);
+          }
         }
-            : null, // Disables the dropdown
+            : null,
         items: const [
           DropdownMenuItem(value: "Admin", child: Text("Admin")),
           DropdownMenuItem(value: "Editor", child: Text("Editor")),
@@ -227,7 +209,6 @@ class MembersPermissionsView extends GetView<MembersController> {
     );
   }
 
-  /// Card for dangerous actions like deleting the group.
   Widget _buildDangerZoneCard() {
     return Card(
       elevation: 0,
@@ -243,9 +224,37 @@ class MembersPermissionsView extends GetView<MembersController> {
           style: TextStyle(
               color: Colors.red.shade900, fontWeight: FontWeight.bold),
         ),
-        onTap: () {
-          // TODO: Implement delete group logic
-        },
+        onTap: () {},
+      ),
+    );
+  }
+
+  void _showAddMemberDialog() {
+    controller.addMemberInputController.clear();
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Add New Member'),
+        content: TextField(
+          controller: controller.addMemberInputController,
+          decoration: const InputDecoration(
+            labelText: 'Member Name or Email',
+            hintText: 'e.g., "John Doe" or "john@example.com"',
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          Obx(() => ElevatedButton(
+            onPressed: controller.isAddingMember.value
+                ? null
+                : controller.addMember,
+            child: controller.isAddingMember.value
+                ? const SizedBox(
+                height: 20,
+                width: 20,
+                child: CircularProgressIndicator(strokeWidth: 2))
+                : const Text('Add'),
+          )),
+        ],
       ),
     );
   }

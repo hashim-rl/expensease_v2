@@ -48,7 +48,6 @@ class MembersController extends GetxController {
 
     final currentUserMember = members.firstWhere(
           (m) => m.id == currentUserId,
-      // FIX: Added the required 'isPlaceholder' argument
       orElse: () => MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
     );
     currentUserRole.value = currentUserMember.role;
@@ -58,7 +57,7 @@ class MembersController extends GetxController {
   Future<void> updateGroupName() async {
     final newName = groupNameController.text.trim();
     if (newName.isEmpty || newName == group.value.name) {
-      return; // Do nothing if name is empty or unchanged
+      return;
     }
     try {
       await _groupRepository.updateGroupName(
@@ -122,6 +121,21 @@ class MembersController extends GetxController {
         }
       },
     );
+  }
+
+  /// ✅ NEW FUNCTION: Updates a member's role in Firestore.
+  Future<void> updateMemberRole(String memberId, String newRole) async {
+    try {
+      // This method needs to be added to the repository
+      await _groupRepository.updateMemberRole(
+        groupId: group.value.id,
+        memberId: memberId,
+        newRole: newRole,
+      );
+      Get.snackbar('Success', "Member's role updated to $newRole.");
+    } catch (e) {
+      Get.snackbar('Error', "Failed to update member's role.");
+    }
   }
 
   @override
