@@ -1,64 +1,69 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:expensease/app/data/models/user_model.dart';
+import 'package:expensease/app/data/models/expense_model.dart';
 import 'package:expensease/app/data/repositories/user_repository.dart';
+import 'package:expensease/app/data/repositories/group_repository.dart';
+import 'package:expensease/app/data/repositories/expense_repository.dart';
 
 class ProfileController extends GetxController {
-  final UserRepository _userRepository = UserRepository();
+  // Repositories
+  final UserRepository _userRepository = Get.find<UserRepository>();
+  final GroupRepository _groupRepository = Get.find<GroupRepository>();
+  final ExpenseRepository _expenseRepository = Get.find<ExpenseRepository>();
 
-  final fullNameController = TextEditingController();
-  final isLoading = false.obs;
-
+  // Observables for UI state
+  final isLoading = true.obs;
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
+  final recentExpenses = <ExpenseModel>[].obs;
+  final netBalance = 0.0.obs;
+  final totalSpent = 0.0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    _loadUserData();
+    loadAllProfileData();
   }
 
-  Future<void> _loadUserData() async {
+  Future<void> loadAllProfileData() async {
     isLoading.value = true;
+
     currentUser.value = await _userRepository.getCurrentUser();
+
     if (currentUser.value != null) {
-      fullNameController.text = currentUser.value!.fullName;
-    }
-    isLoading.value = false;
-  }
+      final groups = await _groupRepository.getGroupsStream().first;
+      final allExpenses = <ExpenseModel>[];
 
-  Future<void> pickAndUploadProfileImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
-
-    if (image != null) {
-      isLoading.value = true;
-      final newImageUrl = await _userRepository.uploadProfilePicture(image);
-      if (newImageUrl != null) {
-        await _loadUserData();
-        Get.snackbar('Success', 'Profile picture updated!');
-      } else {
-        Get.snackbar('Error', 'Failed to upload image.');
+      for (var group in groups) {
+        final groupExpenses =
+        await _expenseRepository.getExpensesStreamForGroup(group.id).first;
+        allExpenses.addAll(groupExpenses);
       }
-      isLoading.value = false;
-    }
-  }
 
-  Future<void> updateProfile() async {
-    if (fullNameController.text.isEmpty) {
-      Get.snackbar('Error', 'Name cannot be empty.');
-      return;
+      _calculateFinancialSummary(allExpenses);
+      allExpenses.sort((a, b) => b.date.compareTo(a.date));
+      recentExpenses.value = allExpenses.take(10).toList();
     }
-    isLoading.value = true;
-    await _userRepository.updateUserName(fullNameController.text.trim());
-    await _loadUserData();
+
     isLoading.value = false;
-    Get.snackbar('Success', 'Profile updated successfully!');
   }
 
-  @override
-  void onClose() {
-    fullNameController.dispose();
-    super.onClose();
+  void _calculateFinancialSummary(List<ExpenseModel> allExpenses) {
+    double calculatedNetBalance = 0.0;
+    double calculatedTotalSpent = 0.0;
+    final userId = _userRepository.getCurrentUserId();
+
+    if (userId == null) return;
+
+    for (var expense in allExpenses) {
+      if (expense.paidById == userId) {
+        calculatedNetBalance += expense.totalAmount;
+      }
+      final userShare = expense.splitBetween[userId] ?? 0.0;
+      calculatedNetBalance -= userShare;
+      calculatedTotalSpent += userShare;
+    }
+
+    netBalance.value = calculatedNetBalance;
+    totalSpent.value = calculatedTotalSpent;
   }
 }

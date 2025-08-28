@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
+import 'package:expensease/app/data/models/user_model.dart'; // Added for UserModel
 import 'package:expensease/app/data/providers/firebase_provider.dart';
 
 /// GroupRepository handles all data operations related to groups,
@@ -37,6 +38,23 @@ class GroupRepository {
     });
   }
 
+  /// --- NEW METHOD ---
+  /// Fetches the user details for a list of member UIDs.
+  Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
+    if (memberIds.isEmpty) return [];
+    try {
+      final snapshot = await _firebaseProvider.firestore
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: memberIds)
+          .get();
+      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+    } catch (e) {
+      print("Error fetching member details: $e");
+      return [];
+    }
+  }
+
+
   /// Creates a new group and adds the current user as the first member (Admin)
   /// using an atomic batch write to ensure data consistency.
   Future<void> createGroup(String groupName, String groupType) async {
@@ -44,7 +62,8 @@ class GroupRepository {
     if (user == null) throw Exception("User not logged in");
 
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
+    final newMemberRef =
+    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
     final newGroup = GroupModel(
       id: newGroupRef.id,
@@ -84,7 +103,8 @@ class GroupRepository {
     final userData = userDoc.data() as Map<String, dynamic>;
     final userName = userData['fullName'] ?? 'New Member';
 
-    final isAlreadyMember = await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
+    final isAlreadyMember =
+    await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
     if (isAlreadyMember) {
       throw '"$userName" is already in this group.';
     }
@@ -138,7 +158,8 @@ class GroupRepository {
     try {
       final batch = _firebaseProvider.firestore.batch();
       final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
-      final memberRef = _firebaseProvider.membersCollection(groupId).doc(memberId);
+      final memberRef =
+      _firebaseProvider.membersCollection(groupId).doc(memberId);
 
       batch.update(groupRef, {
         'memberIds': FieldValue.arrayRemove([memberId])
@@ -164,7 +185,6 @@ class GroupRepository {
     }
   }
 
-  /// --- NEW FUNCTION ---
   /// Updates the role of a member within a group.
   Future<void> updateMemberRole({
     required String groupId,
@@ -172,7 +192,8 @@ class GroupRepository {
     required String newRole,
   }) async {
     try {
-      final memberRef = _firebaseProvider.membersCollection(groupId).doc(memberId);
+      final memberRef =
+      _firebaseProvider.membersCollection(groupId).doc(memberId);
       await memberRef.update({'role': newRole});
     } catch (e) {
       throw Exception('Failed to update member role.');

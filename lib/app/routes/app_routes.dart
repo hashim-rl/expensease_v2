@@ -32,6 +32,7 @@ abstract class Routes {
   static const NOTIFICATIONS = _Paths.NOTIFICATIONS;
   static const SETTINGS = _Paths.SETTINGS;
   static const PROFILE = _Paths.PROFILE;
+  static const EDIT_PROFILE = _Paths.EDIT_PROFILE; // New Route
 
   // Advanced Modules (2 screens)
   static const COUPLES_MODE_SETUP = _Paths.COUPLES_MODE_SETUP;
@@ -72,6 +73,7 @@ abstract class _Paths {
   static const NOTIFICATIONS = '/notifications';
   static const SETTINGS = '/settings';
   static const PROFILE = '/profile';
+  static const EDIT_PROFILE = '/edit-profile'; // New Path
 
   // Specialized Modes
   static const COUPLES_MODE_SETUP = '/couples-mode-setup';

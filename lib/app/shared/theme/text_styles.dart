@@ -4,6 +4,7 @@ import 'app_colors.dart';
 
 // Defines the typography for the ExpensEase app.
 class AppTextStyles {
+  // Existing Styles
   static final TextStyle headline1 = GoogleFonts.inter(
     fontSize: 28,
     fontWeight: FontWeight.bold,
@@ -26,5 +27,18 @@ class AppTextStyles {
     fontSize: 18,
     fontWeight: FontWeight.w600,
     color: AppColors.textWhite,
+  );
+
+  // New Additions for Dashboard
+  static final TextStyle title = GoogleFonts.inter(
+    fontSize: 22,
+    fontWeight: FontWeight.bold,
+    color: AppColors.textPrimary,
+  );
+
+  static final TextStyle bodyBold = GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.bold,
+    color: AppColors.textPrimary,
   );
 }

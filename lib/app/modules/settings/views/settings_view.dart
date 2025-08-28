@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/routes/app_routes.dart';
+import 'package:expensease/app/shared/theme/app_colors.dart';
 import '../controllers/settings_controller.dart';
 
 class SettingsView extends GetView<SettingsController> {
@@ -14,74 +15,99 @@ class SettingsView extends GetView<SettingsController> {
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
       ),
-      body: ListView(
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 24.0),
+        child: Column(
+          children: [
+            _buildSectionCard(
+              title: 'Account',
+              children: [
+                _buildListTile(
+                  icon: Icons.person_outline,
+                  title: 'Profile',
+                  onTap: () => Get.toNamed(Routes.PROFILE),
+                ),
+                _buildListTile(
+                  icon: Icons.subscriptions_outlined,
+                  title: 'Manage Subscription',
+                  onTap: () {
+                    Get.snackbar('Coming Soon', 'Subscription management will be available in a future update.');
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildSectionCard(
+              title: 'Preferences',
+              children: [
+                Obx(() => SwitchListTile(
+                  secondary: const Icon(Icons.brightness_6_outlined, color: AppColors.textSecondary),
+                  title: const Text('Dark Mode'),
+                  value: controller.isDarkMode.value,
+                  onChanged: controller.toggleTheme,
+                  activeColor: AppColors.primaryBlue,
+                )),
+                _buildListTile(
+                  icon: Icons.notifications_active_outlined,
+                  title: 'Notification Settings',
+                  onTap: () => Get.toNamed(Routes.NOTIFICATIONS),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _buildSectionCard(
+              title: 'Security & Data',
+              children: [
+                _buildListTile(
+                  icon: Icons.logout,
+                  title: 'Logout',
+                  color: AppColors.red,
+                  onTap: () => controller.authController.signOut(),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Card(
+      elevation: 2,
+      shadowColor: Colors.black.withOpacity(0.05),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Account Section [cite: 269]
-          _buildSectionHeader('Account'),
-          ListTile(
-            leading: const Icon(Icons.person_outline),
-            title: const Text('Profile'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => Get.toNamed(Routes.PROFILE),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(
+              title.toUpperCase(),
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.2,
+              ),
+            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.subscriptions_outlined),
-            title: const Text('Manage Subscription'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () { /* TODO: Navigate to subscription page */ },
-          ),
-
-          // Preferences Section [cite: 270]
-          _buildSectionHeader('Preferences'),
-          Obx(() => SwitchListTile(
-            secondary: const Icon(Icons.brightness_6_outlined),
-            title: const Text('Dark Mode'),
-            value: controller.isDarkMode.value,
-            onChanged: controller.toggleTheme,
-          )),
-          ListTile(
-            leading: const Icon(Icons.language_outlined),
-            title: const Text('App Language'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.notifications_active_outlined),
-            title: const Text('Notification Settings'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () => Get.toNamed(Routes.NOTIFICATIONS),
-          ),
-
-          // Security Section [cite: 272]
-          _buildSectionHeader('Security & Data'),
-          ListTile(
-            leading: const Icon(Icons.security_outlined),
-            title: const Text('Change Password'),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {},
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
-            title: const Text('Delete Account', style: TextStyle(color: Colors.red)),
-            onTap: () {},
-          ),
+          ...children,
         ],
       ),
     );
   }
 
-  // Helper widget to create clean section headers
-  Widget _buildSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Text(
-        title.toUpperCase(),
-        style: TextStyle(
-          color: Colors.grey.shade600,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
-        ),
-      ),
+  Widget _buildListTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color ?? AppColors.textSecondary),
+      title: Text(title, style: TextStyle(color: color)),
+      trailing: color == null ? const Icon(Icons.arrow_forward_ios, size: 16) : null,
+      onTap: onTap,
     );
   }
 }

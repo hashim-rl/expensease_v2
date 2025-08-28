@@ -1,26 +1,26 @@
+import 'dart:async';
 import 'package:get/get.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/expense_model.dart';
+import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/data/repositories/expense_repository.dart';
-import 'dart:async';
+import 'package:expensease/app/data/repositories/group_repository.dart';
 
 class GroupDashboardController extends GetxController {
   final ExpenseRepository _expenseRepository = Get.find<ExpenseRepository>();
-  final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid;
+  final GroupRepository _groupRepository = Get.find<GroupRepository>();
 
+  final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
   final Rx<GroupModel?> group = Rx<GroupModel?>(null);
+  final members = <UserModel>[].obs;
+
   final expenses = <ExpenseModel>[].obs;
   final memberBalances = <String, double>{}.obs;
   final isLoading = true.obs;
   StreamSubscription? _expenseSubscription;
 
-  final totalGroupSpent = 0.0.obs;
-  final currentUserShare = 0.0.obs;
-  final partnerARatio = 0.5.obs;
-  final partnerBRatio = 0.5.obs;
-  final monthlySavingsGoal = 1000.0.obs;
-  final currentSavings = 300.0.obs;
+  final currentUserNetBalance = 0.0.obs;
 
   @override
   void onInit() {
@@ -32,13 +32,22 @@ class GroupDashboardController extends GetxController {
       return;
     }
     group.value = groupArg;
-    _fetchGroupExpenses();
+    _fetchMemberDetailsAndExpenses();
   }
 
-  void _fetchGroupExpenses() {
+  Future<void> _fetchMemberDetailsAndExpenses() async {
     isLoading.value = true;
-    _expenseSubscription?.cancel();
+    if (group.value != null) {
+      members.value =
+      await _groupRepository.getMembersDetails(group.value!.memberIds);
+      _subscribeToExpenses();
+    } else {
+      isLoading.value = false;
+    }
+  }
 
+  void _subscribeToExpenses() {
+    _expenseSubscription?.cancel();
     _expenseSubscription = _expenseRepository
         .getExpensesStreamForGroup(group.value!.id)
         .listen((expenseList) {
@@ -46,27 +55,17 @@ class GroupDashboardController extends GetxController {
       _processExpenseData();
       isLoading.value = false;
     }, onError: (error) {
-      // ✅ This will now print the detailed error to your console for better debugging.
-      print("Firestore Error: $error");
       isLoading.value = false;
-      Get.snackbar("Error", "Failed to load expenses. Check console for details.");
+      Get.snackbar("Error", "Failed to load expenses.");
     });
   }
 
   void _processExpenseData() {
-    if (group.value == null) return;
+    if (group.value == null || currentUserId == null) return;
 
-    double newTotalSpent = 0.0;
-    double newUserShare = 0.0;
-    final newBalances = <String, double>{};
-
-    for (var memberId in group.value!.memberIds) {
-      newBalances[memberId] = 0.0;
-    }
+    final newBalances = {for (var member in members) member.uid: 0.0};
 
     for (var expense in expenses) {
-      newTotalSpent += expense.totalAmount;
-
       if (newBalances.containsKey(expense.paidById)) {
         newBalances[expense.paidById] =
             newBalances[expense.paidById]! + expense.totalAmount;
@@ -75,22 +74,21 @@ class GroupDashboardController extends GetxController {
         final participantId = entry.key;
         final share = entry.value;
         if (newBalances.containsKey(participantId)) {
-          newBalances[participantId] =
-              newBalances[participantId]! - share;
-        }
-        if (participantId == _currentUserId) {
-          newUserShare += share;
+          newBalances[participantId] = newBalances[participantId]! - share;
         }
       }
     }
-    totalGroupSpent.value = newTotalSpent;
-    currentUserShare.value = newUserShare;
+
     memberBalances.value = newBalances;
+    currentUserNetBalance.value = newBalances[currentUserId] ?? 0.0;
   }
 
-  void updateIncomeRatio(double newPartnerARatio) {
-    partnerARatio.value = newPartnerARatio;
-    partnerBRatio.value = 1.0 - newPartnerARatio;
+  String getMemberName(String uid) {
+    // This is the corrected part
+    final member = members.firstWhere((m) => m.uid == uid,
+        orElse: () =>
+            UserModel(uid: '', email: '', fullName: 'Unknown'));
+    return member.fullName;
   }
 
   @override

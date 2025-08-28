@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
-import 'package:expensease/app/modules/authentication/controllers/auth_controller.dart';
 import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/theme/app_colors.dart';
+import 'package:expensease/app/shared/widgets/app_drawer.dart'; // Import the new drawer
 
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final AuthController authController = Get.find();
-
     return Scaffold(
+      key: controller.scaffoldKey, // Assign the key to the Scaffold
+      drawer: const AppDrawer(), // Add the AppDrawer widget here
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () {}, // TODO: Implement back functionality if needed
+          icon: const Icon(Icons.menu), // Changed icon to menu
+          onPressed: controller.openDrawer, // Call the controller method to open the drawer
         ),
         title: const Text('ExpensEase'),
         centerTitle: true,
@@ -63,11 +63,9 @@ class DashboardView extends GetView<DashboardController> {
           ],
         ),
       ),
-      // ✅ FIX: The floating action button has been REMOVED from here.
     );
   }
 
-  /// The main balance card from your design.
   Widget _buildTotalBalanceCard() {
     return Container(
       margin: const EdgeInsets.all(16),
@@ -75,7 +73,7 @@ class DashboardView extends GetView<DashboardController> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24),
         gradient: const LinearGradient(
-          colors: [Color(0xFFFBC2EB), Color(0xFFA6C1EE)],
+          colors: [Color(0xFF84fab0), Color(0xFF8fd3f4)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -94,32 +92,17 @@ class DashboardView extends GetView<DashboardController> {
               style: TextStyle(color: Colors.white, fontSize: 18)),
           const SizedBox(height: 8),
           Obx(() => Text(
-            "\$${controller.overallBalance.value.toStringAsFixed(2).replaceFirst('.', ',')}",
+            "\$${controller.overallBalance.value.toStringAsFixed(2)}",
             style: const TextStyle(
                 color: Colors.white,
                 fontSize: 48,
                 fontWeight: FontWeight.bold),
           )),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Chip(
-                label: const Text("Owed", style: TextStyle(color: Colors.deepOrangeAccent)),
-                backgroundColor: Colors.white.withOpacity(0.3),
-              ),
-              const SizedBox(width: 8),
-              Chip(
-                label: const Text("Ows Money", style: TextStyle(color: Colors.deepOrangeAccent)),
-                backgroundColor: Colors.white.withOpacity(0.3),
-              ),
-            ],
-          )
         ],
       ),
     );
   }
 
-  /// The content for the first tab, including the summary and charts.
   Widget _buildSummaryContent() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -131,7 +114,6 @@ class DashboardView extends GetView<DashboardController> {
           const SizedBox(height: 16),
           _buildLegend(),
           const SizedBox(height: 24),
-          // ✅ FIX: The Stack allows us to place the button directly on top of the chart.
           Stack(
             alignment: Alignment.center,
             children: [
@@ -146,7 +128,6 @@ class DashboardView extends GetView<DashboardController> {
                   ),
                 )),
               ),
-              // ✅ FIX: The button is now here, in the center.
               _buildAddButton(),
             ],
           )
@@ -155,7 +136,6 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  /// The legend for the pie chart.
   Widget _buildLegend() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -186,7 +166,6 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  /// The custom "+" button that reveals options, styled to match your design.
   Widget _buildAddButton() {
     return PopupMenuButton<String>(
       onSelected: (value) {
@@ -215,7 +194,6 @@ class DashboardView extends GetView<DashboardController> {
           child: ListTile(leading: Icon(Icons.group_add_outlined), title: Text('Create or Join Group')),
         ),
       ],
-      // This is the circular button with the "+" icon
       child: Container(
         width: 80,
         height: 80,
@@ -235,7 +213,6 @@ class DashboardView extends GetView<DashboardController> {
     );
   }
 
-  /// Helper function needed by the PopupMenuButton.
   void _showGroupSelectionDialog() {
     if (controller.groups.isEmpty) {
       Get.snackbar("No Groups Available", "Create a group before adding an expense.");

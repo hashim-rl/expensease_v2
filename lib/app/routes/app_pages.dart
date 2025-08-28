@@ -37,10 +37,14 @@ import '../modules/specialized_modes/views/couples_mode_setup_view.dart';
 import '../modules/specialized_modes/views/family_mode_dashboard_view.dart';
 import 'app_routes.dart';
 
+// Imports for the new Edit Profile screen
+import '../modules/settings/views/edit_profile_view.dart';
+import '../modules/settings/bindings/edit_profile_binding.dart';
+
+
 class AppPages {
   static final routes = [
     // AUTH
-    // ✅ FIX: The SPLASH route is now a simple page with no binding.
     GetPage(name: Routes.SPLASH, page: () => const SplashView()),
     GetPage(name: Routes.AUTH_HUB, page: () => const AuthHubView(), binding: AuthBinding()),
     GetPage(name: Routes.LOGIN, page: () => const LoginView(), binding: AuthBinding()),
@@ -53,7 +57,7 @@ class AppPages {
 
     // GROUPS
     GetPage(name: Routes.GROUPS_LIST, page: () => const GroupsListView(), binding: GroupBinding()),
-    GetPage(name: Routes.GROUP_DASHBOARD, page: () => GroupDashboardView(), binding: GroupDashboardBinding()),
+    GetPage(name: Routes.GROUP_DASHBOARD, page: () => const GroupDashboardView(), binding: GroupDashboardBinding()),
     GetPage(name: Routes.MEMBERS_PERMISSIONS, page: () => const MembersPermissionsView(), binding: MembersBinding()),
     GetPage(name: Routes.SETTLE_UP, page: () => const SettleUpView(), binding: SettleUpBinding()),
 
@@ -70,6 +74,7 @@ class AppPages {
     // SETTINGS
     GetPage(name: Routes.SETTINGS, page: () => const SettingsView(), binding: SettingsBinding()),
     GetPage(name: Routes.PROFILE, page: () => const ProfileView(), binding: ProfileBinding()),
+    GetPage(name: Routes.EDIT_PROFILE, page: () => const EditProfileView(), binding: EditProfileBinding()), // New Route Added
     GetPage(name: Routes.NOTIFICATIONS, page: () => const NotificationsView(), binding: NotificationsBinding()),
 
     // SPECIALIZED MODES

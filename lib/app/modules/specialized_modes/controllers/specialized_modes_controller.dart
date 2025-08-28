@@ -1,65 +1,99 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/data/models/group_model.dart';
-import 'package:expensease/app/data/repositories/group_repository.dart'; // Assuming a repo exists to save the data
+import 'package:expensease/app/data/models/user_model.dart';
+import 'package:expensease/app/data/repositories/group_repository.dart';
+import 'package:expensease/app/data/repositories/user_repository.dart';
 
 class SpecializedModesController extends GetxController {
-  final GroupRepository _groupRepository = GroupRepository();
-  final GroupModel group = Get.arguments;
+  final GroupRepository _groupRepository = Get.find<GroupRepository>();
+  final UserRepository _userRepository = Get.find<UserRepository>();
+  late final GroupModel group;
 
-  final partnerAIncomeController = TextEditingController();
-  final partnerBIncomeController = TextEditingController();
+  // State for partner details
+  final partnerA = Rxn<UserModel>();
+  final partnerB = Rxn<UserModel>();
 
-  final incomeRatio = '50% / 50%'.obs;
+  // State for income sliders and ratio calculation
+  final partnerAIncome = 5000.0.obs;
+  final partnerBIncome = 5000.0.obs;
+  final partnerARatio = 0.5.obs;
+  final partnerBRatio = 0.5.obs;
 
-  /// Calculates the income ratio for Couples Mode
-  void calculateIncomeRatio() {
-    final incomeA = double.tryParse(partnerAIncomeController.text) ?? 0;
-    final incomeB = double.tryParse(partnerBIncomeController.text) ?? 0;
+  // State for savings goal
+  final monthlySavingsGoal = 1000.0.obs;
+  final currentSavings = 300.0.obs; // Placeholder data
 
-    if (incomeA + incomeB == 0) {
-      incomeRatio.value = '50% / 50%';
+  final isLoading = true.obs;
+
+  @override
+  void onInit() {
+    super.onInit();
+    final groupArg = Get.arguments as GroupModel?;
+    if (groupArg == null) {
+      Get.snackbar('Error', 'No group provided for Couples Mode.');
+      isLoading.value = false;
       return;
     }
-
-    final totalIncome = incomeA + incomeB;
-    final ratioA = (incomeA / totalIncome * 100).round();
-    final ratioB = 100 - ratioA;
-
-    incomeRatio.value = '$ratioA% / $ratioB%';
+    group = groupArg;
+    _fetchPartnerDetails();
   }
 
-  void saveCoupleModeSettings() async {
-    // THIS IS THE FIX: We now get the partner UIDs from the group.memberIds list
+  Future<void> _fetchPartnerDetails() async {
+    isLoading.value = true;
     if (group.memberIds.length != 2) {
-      Get.snackbar('Error', 'A couple group must have exactly two members.');
+      Get.snackbar('Configuration Error', 'Couples Mode requires exactly two members.');
+      isLoading.value = false;
       return;
     }
 
-    final String partnerA_uid = group.memberIds[0];
-    final String partnerB_uid = group.memberIds[1];
-
-    final incomeA = double.tryParse(partnerAIncomeController.text) ?? 0;
-    final incomeB = double.tryParse(partnerBIncomeController.text) ?? 0;
-
-    if (incomeA + incomeB == 0) {
-      Get.snackbar('Error', 'Total income cannot be zero.');
-      return;
+    // Fetch user models for both members
+    final members = await _groupRepository.getMembersDetails(group.memberIds);
+    if (members.length == 2) {
+      partnerA.value = members[0];
+      partnerB.value = members[1];
     }
+    isLoading.value = false;
+  }
 
-    final totalIncome = incomeA + incomeB;
-    final ratioA = incomeA / totalIncome;
-    final ratioB = incomeB / totalIncome;
+  void updatePartnerAIncome(double value) {
+    partnerAIncome.value = value;
+    _calculateIncomeRatio();
+  }
 
-    final Map<String, double> ratioMap = {
-      partnerA_uid: ratioA,
-      partnerB_uid: ratioB,
-    };
+  void updatePartnerBIncome(double value) {
+    partnerBIncome.value = value;
+    _calculateIncomeRatio();
+  }
 
-    // TODO: Call a repository method to save `ratioMap` to the group document in Firestore
-    // await _groupRepository.updateGroupRatio(group.id, ratioMap);
+  void _calculateIncomeRatio() {
+    final totalIncome = partnerAIncome.value + partnerBIncome.value;
+    if (totalIncome == 0) {
+      partnerARatio.value = 0.5;
+      partnerBRatio.value = 0.5;
+    } else {
+      partnerARatio.value = partnerAIncome.value / totalIncome;
+      partnerBRatio.value = partnerBIncome.value / totalIncome;
+    }
+  }
+
+  void updateMonthlySavingsGoal(double value) {
+    monthlySavingsGoal.value = value;
+  }
+
+  void saveCoupleModeSettings() {
+    // TODO: Implement logic to save the income ratio and savings goal to the group document in Firestore.
+    // For example:
+    // final settings = {
+    //   'incomeRatio': {
+    //     partnerA.value!.uid: partnerARatio.value,
+    //     partnerB.value!.uid: partnerBRatio.value,
+    //   },
+    //   'savingsGoal': monthlySavingsGoal.value,
+    // };
+    // await _groupRepository.updateGroupSettings(group.id, settings);
 
     Get.back();
-    Get.snackbar('Success', 'Couples Mode setup complete! Ratio is ${incomeRatio.value}');
+    Get.snackbar('Settings Saved', 'Couples Mode has been configured.');
   }
 }

@@ -13,7 +13,6 @@ class UserRepository {
     if (_uid == null) return null;
     final doc = await _firebaseProvider.getUserDocument(_uid!);
     if (doc.exists) {
-      // FIX: Renamed fromSnapshot to fromFirestore
       return UserModel.fromFirestore(doc);
     }
     return null;
@@ -36,5 +35,11 @@ class UserRepository {
   Future<void> updateUserName(String newName) async {
     if (_uid == null) return;
     await _firebaseProvider.updateUserName(_uid!, newName);
+  }
+
+  // --- NEW METHOD ADDED HERE ---
+  /// A simple method to get the current logged-in user's ID.
+  String? getCurrentUserId() {
+    return _uid;
   }
 }

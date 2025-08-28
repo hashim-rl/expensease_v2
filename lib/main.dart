@@ -6,7 +6,7 @@ import 'package:get_storage/get_storage.dart';
 import 'package:expensease/app/routes/app_pages.dart';
 import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/theme/app_theme.dart';
-import 'package:expensease/app/bindings/initial_binding.dart';
+import 'package:expensease/app/bindings/app_binding.dart'; // Import the new binding
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,11 +29,10 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      // The app will ALWAYS start at the splash screen.
       initialRoute: Routes.SPLASH,
       getPages: AppPages.routes,
-      // The InitialBinding ensures the AuthController is ready from the start.
-      initialBinding: InitialBinding(),
+      // Use the new AppBinding instead of any previous initial bindings
+      initialBinding: AppBinding(),
     );
   }
 }

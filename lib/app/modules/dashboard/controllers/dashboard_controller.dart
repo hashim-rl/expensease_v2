@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -9,13 +8,13 @@ import 'dart:async';
 class DashboardController extends GetxController {
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
 
-  // --- STATE MANAGEMENT ---
+  // A key to control the Scaffold's state, including the drawer
+  final GlobalKey<ScaffoldState> scaffoldKey = GlobalKey<ScaffoldState>();
+
   final groups = <GroupModel>[].obs;
   final isLoading = true.obs;
   final overallBalance = 0.0.obs;
-  final isDialOpen = ValueNotifier<bool>(false);
 
-  // New state for the pie chart data
   final summaryData = <String, double>{
     'Paid': 120.0,
     'Owed': 75.0,
@@ -24,14 +23,11 @@ class DashboardController extends GetxController {
 
   StreamSubscription? _groupsSubscription;
 
-  /// ✅ NEW GETTER: This is what the view needs.
-  /// It dynamically creates the pie chart sections based on the summaryData.
   RxList<PieChartSectionData> get pieChartSections {
     final List<PieChartSectionData> sections = [];
     final total = summaryData.values.fold(0.0, (sum, item) => sum + item);
     if (total == 0) return <PieChartSectionData>[].obs;
 
-    // Create a section for "Paid"
     sections.add(PieChartSectionData(
       color: Colors.lightBlue,
       value: summaryData['Paid'],
@@ -39,7 +35,6 @@ class DashboardController extends GetxController {
       radius: 50,
       titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
     ));
-    // Create a section for "Owed"
     sections.add(PieChartSectionData(
       color: Colors.orangeAccent,
       value: summaryData['Owed'],
@@ -47,7 +42,6 @@ class DashboardController extends GetxController {
       radius: 50,
       titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
     ));
-    // Create a section for "Due"
     sections.add(PieChartSectionData(
       color: Colors.pinkAccent,
       value: summaryData['Due'],
@@ -59,14 +53,12 @@ class DashboardController extends GetxController {
     return sections.obs;
   }
 
-
   @override
   void onInit() {
     super.onInit();
     fetchUserGroups();
   }
 
-  /// Fetches all groups the current user is a member of from Firestore.
   void fetchUserGroups() {
     isLoading.value = true;
     _groupsSubscription?.cancel();
@@ -74,8 +66,7 @@ class DashboardController extends GetxController {
     _groupsSubscription = _groupRepository.getGroupsStream().listen(
           (groupList) {
         groups.value = groupList;
-        // TODO: Implement logic to calculate the overall balance from all groups
-        overallBalance.value = 78.50; // Using placeholder from design
+        overallBalance.value = 78.50;
         isLoading.value = false;
       },
       onError: (error) {
@@ -85,9 +76,13 @@ class DashboardController extends GetxController {
     );
   }
 
+  // Method to open the drawer
+  void openDrawer() {
+    scaffoldKey.currentState?.openDrawer();
+  }
+
   @override
   void onClose() {
-    isDialOpen.dispose();
     _groupsSubscription?.cancel();
     super.onClose();
   }

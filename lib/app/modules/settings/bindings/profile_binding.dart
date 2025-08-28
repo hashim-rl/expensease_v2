@@ -4,6 +4,7 @@ import 'package:expensease/app/modules/settings/controllers/profile_controller.d
 class ProfileBinding extends Bindings {
   @override
   void dependencies() {
+    // Repositories are now loaded globally, so we only need the controller.
     Get.lazyPut<ProfileController>(() => ProfileController());
   }
 }

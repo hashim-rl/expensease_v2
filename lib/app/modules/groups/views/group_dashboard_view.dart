@@ -1,164 +1,274 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:animate_do/animate_do.dart';
+import 'package:intl/intl.dart';
 import 'package:expensease/app/modules/groups/controllers/group_dashboard_controller.dart';
 import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
-import 'package:expensease/app/shared/services/user_service.dart';
-import 'package:intl/intl.dart';
+import 'package:expensease/app/shared/theme/app_colors.dart';
+import 'package:expensease/app/shared/theme/text_styles.dart';
 
 class GroupDashboardView extends GetView<GroupDashboardController> {
-  GroupDashboardView({super.key});
-
-  final UserService _userService = UserService();
+  const GroupDashboardView({super.key});
 
   @override
   Widget build(BuildContext context) {
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
-      appBar: AppBar(
-        title: Obx(() => Text(controller.group.value?.name ?? 'Group')),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: "Group Settings",
-            icon: const Icon(Icons.settings_outlined),
-            onPressed: () => Get.toNamed(
-              Routes.MEMBERS_PERMISSIONS,
-              arguments: controller.group.value,
-            ),
-          ),
-        ],
-      ),
-      body: Obx(() {
-        if (controller.isLoading.value) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        return DefaultTabController(
-          length: 2,
-          child: Column(
-            children: [
-              _buildGroupHeaderCard(),
-              const TabBar(
-                tabs: [
-                  Tab(text: 'Expenses'),
-                  Tab(text: 'Balances'),
+      backgroundColor: AppColors.background,
+      body: Obx(
+            () {
+          if (controller.isLoading.value && controller.expenses.isEmpty) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          return DefaultTabController(
+            length: 2,
+            child: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) {
+                return [
+                  _buildSliverAppBar(),
+                  SliverToBoxAdapter(child: _buildBalanceCard()),
+                  SliverPersistentHeader(
+                    delegate: _SliverTabBarDelegate(
+                      const TabBar(
+                        tabs: [
+                          Tab(text: 'Expenses'),
+                          Tab(text: 'Balances'),
+                        ],
+                        labelColor: AppColors.primaryBlue,
+                        unselectedLabelColor: AppColors.textSecondary,
+                        indicatorColor: AppColors.primaryBlue,
+                      ),
+                    ),
+                    pinned: true,
+                  ),
+                ];
+              },
+              body: TabBarView(
+                children: [
+                  _buildExpenseList(),
+                  _buildBalancesView(),
                 ],
-                labelColor: Colors.black87,
-                indicatorColor: Colors.blueAccent,
               ),
-              Expanded(
-                child: TabBarView(
-                  children: [
-                    _buildExpenseList(),
-                    _buildBalancesView(),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        );
-      }),
+            ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Get.toNamed(
-          Routes.ADD_EXPENSE,
+          '${Routes.ADD_EXPENSE}/${controller.group.value!.id}',
           arguments: controller.group.value,
         ),
-        child: const Icon(Icons.add),
+        backgroundColor: AppColors.primaryBlue,
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
 
-  Widget _buildGroupHeaderCard() {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16.0),
-      padding: const EdgeInsets.all(24.0),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 5,
-            blurRadius: 15,
+  Widget _buildSliverAppBar() {
+    return SliverAppBar(
+      title: Obx(() => Text(
+        controller.group.value?.name ?? 'Group',
+        style: AppTextStyles.title,
+      )),
+      expandedHeight: 120.0,
+      floating: false,
+      pinned: true,
+      backgroundColor: AppColors.background,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Align(
+          alignment: Alignment.bottomLeft,
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16.0, bottom: 8.0),
+            child: _buildMemberAvatars(),
           ),
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Obx(() => _summaryItem("Total Spent",
-              "\$${controller.totalGroupSpent.value.toStringAsFixed(2)}")),
-          const SizedBox(
-            height: 50,
-            child: VerticalDivider(),
-          ),
-          Obx(() => _summaryItem("Your Share",
-              "\$${controller.currentUserShare.value.toStringAsFixed(2)}")),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryItem(String title, String value) {
-    return Column(
-      children: [
-        Text(
-          title,
-          style: const TextStyle(color: Colors.grey, fontSize: 14),
         ),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      ),
+      actions: [
+        IconButton(
+          tooltip: "Group Settings",
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => Get.toNamed(
+            '${Routes.MEMBERS_PERMISSIONS}/${controller.group.value!.id}',
+            arguments: controller.group.value,
+          ),
         ),
       ],
     );
   }
 
+  Widget _buildMemberAvatars() {
+    return Obx(() {
+      final membersToShow = controller.members.take(5).toList();
+      final remainingCount = controller.members.length - membersToShow.length;
+
+      return SizedBox(
+        height: 40,
+        child: Stack(
+          children: [
+            ...List.generate(membersToShow.length, (index) {
+              final member = membersToShow[index];
+              return Positioned(
+                left: index * 25.0,
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                    child: Text(
+                      member.fullName.isNotEmpty
+                          ? member.fullName[0].toUpperCase()
+                          : '?',
+                      style: const TextStyle(
+                          color: AppColors.primaryBlue,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              );
+            }),
+            if (remainingCount > 0)
+              Positioned(
+                left: membersToShow.length * 25.0,
+                child: CircleAvatar(
+                  radius: 18,
+                  backgroundColor: Colors.white,
+                  child: CircleAvatar(
+                    radius: 16,
+                    backgroundColor: Colors.grey.shade200,
+                    child: Text(
+                      '+$remainingCount',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildBalanceCard() {
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      elevation: 0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+        child: Obx(() {
+          final balance = controller.currentUserNetBalance.value;
+          final isOwed = balance > 0.01;
+          final owes = balance < -0.01;
+          final color = isOwed ? AppColors.green : AppColors.red;
+
+          String title;
+          if (isOwed) {
+            title = "Overall, you are owed";
+          } else if (owes) {
+            title = "Overall, you owe";
+          } else {
+            title = "You are all settled up!";
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: AppTextStyles.bodyText1
+                      .copyWith(color: AppColors.textSecondary)),
+              const SizedBox(height: 8),
+              if (isOwed || owes)
+                Text(
+                  currencyFormat.format(balance.abs()),
+                  style:
+                  AppTextStyles.headline1.copyWith(color: color, fontSize: 28),
+                ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: owes || isOwed
+                      ? () => Get.toNamed(
+                      '${Routes.SETTLE_UP}/${controller.group.value!.id}')
+                      : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryBlue,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text('Settle Up'),
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
+    );
+  }
+
   Widget _buildExpenseList() {
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
     return Obx(() {
       if (controller.expenses.isEmpty) {
         return const EmptyStateWidget(
           icon: Icons.receipt_long_outlined,
-          title: 'No Expenses Here',
-          subtitle: 'Tap the (+) button to add the first expense to this group.',
+          title: 'No Expenses Yet',
+          subtitle: 'Tap the (+) button to add the first expense.',
         );
       }
       return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
         itemCount: controller.expenses.length,
         itemBuilder: (context, index) {
           final expense = controller.expenses[index];
-          return FadeInUp(
-            delay: Duration(milliseconds: index * 50),
-            child: Card(
-              margin: const EdgeInsets.only(bottom: 12.0),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                    vertical: 12.0, horizontal: 16.0),
-                leading: const CircleAvatar(
-                  child: Icon(Icons.shopping_cart_outlined),
-                ),
-                title: Text(expense.description,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: FutureBuilder<String>(
-                  future: _userService.getUserName(expense.paidById),
-                  builder: (context, snapshot) {
-                    return Text(
-                        'Paid by ${snapshot.data ?? "..."} on ${DateFormat.yMMMd().format(expense.date)}');
-                  },
-                ),
-                trailing: Text('\$${expense.totalAmount.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 16)),
-                onTap: () =>
-                    Get.toNamed(Routes.EXPENSE_DETAILS, arguments: expense),
+          final currentUserId = controller.currentUserId;
+          final userShare = expense.splitBetween[currentUserId] ?? 0.0;
+          final paidBy = controller.getMemberName(expense.paidById);
+
+          return Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: const EdgeInsets.only(bottom: 12.0),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              contentPadding:
+              const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+              leading: const CircleAvatar(
+                backgroundColor: AppColors.primaryLight,
+                child:
+                Icon(Icons.shopping_cart_outlined, color: AppColors.primaryBlue),
               ),
+              title: Text(expense.description, style: AppTextStyles.bodyBold),
+              subtitle: Text(
+                  'Paid by $paidBy on ${DateFormat.MMMd().format(expense.date)}'),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    currencyFormat.format(expense.totalAmount),
+                    style: AppTextStyles.bodyBold,
+                  ),
+                  if (userShare > 0)
+                    Text(
+                      'You owe ${currencyFormat.format(userShare)}',
+                      style:
+                      AppTextStyles.bodyText1.copyWith(color: AppColors.red),
+                    )
+                ],
+              ),
+              onTap: () =>
+                  Get.toNamed(Routes.EXPENSE_DETAILS, arguments: expense),
             ),
           );
         },
@@ -167,45 +277,74 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
   }
 
   Widget _buildBalancesView() {
+    final currencyFormat = NumberFormat.currency(symbol: '\$');
     return Obx(() {
       final balances = controller.memberBalances.entries.toList();
       return ListView.builder(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
         itemCount: balances.length,
         itemBuilder: (context, index) {
           final entry = balances[index];
-          return FadeInUp(
-            delay: Duration(milliseconds: index * 50),
-            child: Card(
-              margin: const EdgeInsets.only(bottom: 12.0),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-              child: FutureBuilder<String>(
-                future: _userService.getUserName(entry.key),
-                builder: (context, snapshot) {
-                  return ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 16.0),
-                    leading: CircleAvatar(
-                      child: Text(snapshot.data?.substring(0, 1) ?? '?'),
-                    ),
-                    title: Text(snapshot.data ?? 'Loading...',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    trailing: Text(
-                      '${entry.value < 0 ? '-' : ''}\$${entry.value.abs().toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: entry.value >= 0 ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  );
-                },
+          final memberName = controller.getMemberName(entry.key);
+          final balance = entry.value;
+
+          final color = balance >= 0 ? AppColors.green : AppColors.red;
+          final text = balance >= 0
+              ? '${currencyFormat.format(balance)}'
+              : '${currencyFormat.format(balance.abs())}';
+          final prefix = balance >= 0 ? 'Gets back ' : 'Owes ';
+
+          return Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: const EdgeInsets.only(bottom: 12.0),
+            shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: ListTile(
+              contentPadding:
+              const EdgeInsets.symmetric(vertical: 10.0, horizontal: 16.0),
+              leading: CircleAvatar(
+                backgroundColor: AppColors.primaryBlue.withOpacity(0.1),
+                child: Text(
+                  memberName.isNotEmpty ? memberName[0].toUpperCase() : '?',
+                  style: const TextStyle(
+                      color: AppColors.primaryBlue, fontWeight: FontWeight.bold),
+                ),
+              ),
+              title: Text(memberName, style: AppTextStyles.bodyBold),
+              subtitle: Text(
+                prefix + text,
+                style: AppTextStyles.bodyText1.copyWith(color: color),
               ),
             ),
           );
         },
       );
     });
+  }
+}
+
+class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
+  _SliverTabBarDelegate(this._tabBar);
+
+  final TabBar _tabBar;
+
+  @override
+  double get minExtent => _tabBar.preferredSize.height;
+  @override
+  double get maxExtent => _tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+      BuildContext context, double shrinkOffset, bool overlapsContent) {
+    return Container(
+      color: AppColors.background,
+      child: _tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) {
+    return false;
   }
 }
