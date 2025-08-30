@@ -2,26 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
-import 'package:expensease/app/data/models/user_model.dart'; // Added for UserModel
+import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/data/providers/firebase_provider.dart';
 
-/// GroupRepository handles all data operations related to groups,
-/// such as creating, fetching, and managing members.
 class GroupRepository {
   final FirebaseProvider _firebaseProvider;
   final FirebaseAuth _auth;
 
-  /// Constructor uses dependency injection for better testability and structure.
   GroupRepository({
     FirebaseProvider? provider,
     FirebaseAuth? auth,
   })  : _firebaseProvider = provider ?? FirebaseProvider(),
         _auth = auth ?? FirebaseAuth.instance;
 
-  /// Private getter for the current user's ID for convenience.
   String? get _uid => _auth.currentUser?.uid;
 
-  /// Fetches a live stream of all groups the current user is a member of.
   Stream<List<GroupModel>> getGroupsStream() {
     if (_uid == null) {
       return Stream.value([]);
@@ -31,15 +26,12 @@ class GroupRepository {
     });
   }
 
-  /// Fetches a live stream of all members for a specific group.
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
       return snapshot.docs.map((doc) => MemberModel.fromFirestore(doc)).toList();
     });
   }
 
-  /// --- NEW METHOD ---
-  /// Fetches the user details for a list of member UIDs.
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
     if (memberIds.isEmpty) return [];
     try {
@@ -54,16 +46,17 @@ class GroupRepository {
     }
   }
 
-
-  /// Creates a new group and adds the current user as the first member (Admin)
-  /// using an atomic batch write to ensure data consistency.
   Future<void> createGroup(String groupName, String groupType) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
+    // --- THIS IS THE FIX ---
+    // We now fetch the user's profile from Firestore to get their 'fullName'.
+    final userDoc = await _firebaseProvider.getUserDocument(user.uid);
+    final userName = userDoc.data()?['fullName'] as String? ?? user.email ?? 'Member';
+
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    final newMemberRef =
-    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
+    final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
     final newGroup = GroupModel(
       id: newGroupRef.id,
@@ -73,9 +66,10 @@ class GroupRepository {
       createdAt: Timestamp.now(),
     );
 
+    // Use the fetched userName
     final creatorAsMember = MemberModel(
       id: user.uid,
-      name: user.displayName ?? 'Admin',
+      name: userName,
       email: user.email,
       role: 'Admin',
     );
@@ -87,7 +81,6 @@ class GroupRepository {
     await batch.commit();
   }
 
-  /// Finds a registered user by email and adds them to a group.
   Future<String> addMemberByEmail({
     required String groupId,
     required String email,
@@ -125,7 +118,6 @@ class GroupRepository {
     return '"$userName" was successfully added to the group!';
   }
 
-  /// Adds a new non-registered member to a group by name only.
   Future<String> addPlaceholderMember({
     required String groupId,
     required String name,
@@ -150,7 +142,6 @@ class GroupRepository {
     return '"$name" was successfully added as a placeholder!';
   }
 
-  /// Removes a member from a group using an atomic batch write.
   Future<void> removeMemberFromGroup({
     required String groupId,
     required String memberId,
@@ -172,7 +163,6 @@ class GroupRepository {
     }
   }
 
-  /// Updates the name of a group document in Firestore.
   Future<void> updateGroupName({
     required String groupId,
     required String newName,
@@ -185,7 +175,6 @@ class GroupRepository {
     }
   }
 
-  /// Updates the role of a member within a group.
   Future<void> updateMemberRole({
     required String groupId,
     required String memberId,

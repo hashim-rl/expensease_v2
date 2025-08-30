@@ -31,7 +31,7 @@ class MyApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       initialRoute: Routes.SPLASH,
       getPages: AppPages.routes,
-      // Use the new AppBinding instead of any previous initial bindings
+      // THIS IS THE FIX: Use the new AppBinding instead of InitialBinding
       initialBinding: AppBinding(),
     );
   }

@@ -18,9 +18,9 @@ class AppBinding extends Bindings {
     Get.put(UserRepository(), permanent: true);
     Get.put(GroupRepository(), permanent: true);
     Get.put(ExpenseRepository(), permanent: true);
-    Get.put(FamilyRepository(), permanent: true); // Added for Family Mode
+    Get.put(FamilyRepository(), permanent: true);
 
-    // Core Controllers
+    // Core Controllers (also permanent and always available)
     Get.put(AuthController(), permanent: true);
   }
 }

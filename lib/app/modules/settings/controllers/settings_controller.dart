@@ -8,7 +8,7 @@ class SettingsController extends GetxController {
   final _key = 'isDarkMode';
 
   final isDarkMode = false.obs;
-  // Make AuthController available to the view for the logout button
+  // This will now safely find the globally available AuthController
   final AuthController authController = Get.find<AuthController>();
 
   @override
@@ -19,7 +19,6 @@ class SettingsController extends GetxController {
   }
 
   bool _loadThemeFromBox() => _box.read(_key) ?? false;
-
   void _saveThemeToBox(bool isDarkMode) => _box.write(_key, isDarkMode);
 
   void toggleTheme(bool value) {

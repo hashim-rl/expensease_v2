@@ -4,7 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/theme/app_colors.dart';
-import 'package:expensease/app/shared/widgets/app_drawer.dart'; // Import the new drawer
+import 'package:expensease/app/shared/widgets/app_drawer.dart';
 
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
@@ -12,12 +12,12 @@ class DashboardView extends GetView<DashboardController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      key: controller.scaffoldKey, // Assign the key to the Scaffold
-      drawer: const AppDrawer(), // Add the AppDrawer widget here
+      key: controller.scaffoldKey,
+      drawer: const AppDrawer(),
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.menu), // Changed icon to menu
-          onPressed: controller.openDrawer, // Call the controller method to open the drawer
+          icon: const Icon(Icons.menu),
+          onPressed: controller.openDrawer,
         ),
         title: const Text('ExpensEase'),
         centerTitle: true,
@@ -42,10 +42,10 @@ class DashboardView extends GetView<DashboardController> {
             _buildTotalBalanceCard(),
             const TabBar(
               tabs: [
-                Tab(text: "Bills"),
+                Tab(text: "Reports"),
                 Tab(text: "Meals"),
                 Tab(text: "Shared Buys"),
-                Tab(text: "Reports"),
+                Tab(text: "Bills"),
               ],
               labelColor: Colors.black,
               indicatorColor: AppColors.primaryBlue,
@@ -53,10 +53,13 @@ class DashboardView extends GetView<DashboardController> {
             Expanded(
               child: TabBarView(
                 children: [
+                  // --- THIS IS THE FIX ---
+                  // The summary content is now the last item, matching the "Reports" tab.
                   _buildSummaryContent(),
                   const Center(child: Text("Meals Data Coming Soon")),
                   const Center(child: Text("Shared Buys Data Coming Soon")),
-                  const Center(child: Text("Reports Data Coming Soon")),
+                  const Center(child: Text("Bills Data Coming Soon")),
+                   // Moved to the last position
                 ],
               ),
             ),
@@ -178,20 +181,25 @@ class DashboardView extends GetView<DashboardController> {
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(
           value: 'bill',
-          child: ListTile(leading: Icon(Icons.receipt_long), title: Text('Add Bill')),
+          child:
+          ListTile(leading: Icon(Icons.receipt_long), title: Text('Add Bill')),
         ),
         const PopupMenuItem<String>(
           value: 'meal',
-          child: ListTile(leading: Icon(Icons.restaurant), title: Text('Add Meal')),
+          child:
+          ListTile(leading: Icon(Icons.restaurant), title: Text('Add Meal')),
         ),
         const PopupMenuItem<String>(
           value: 'expense',
-          child: ListTile(leading: Icon(Icons.shopping_cart), title: Text('Add Expense')),
+          child: ListTile(
+              leading: Icon(Icons.shopping_cart), title: Text('Add Expense')),
         ),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
           value: 'create_group',
-          child: ListTile(leading: Icon(Icons.group_add_outlined), title: Text('Create or Join Group')),
+          child: ListTile(
+              leading: Icon(Icons.group_add_outlined),
+              title: Text('Create or Join Group')),
         ),
       ],
       child: Container(
@@ -215,7 +223,8 @@ class DashboardView extends GetView<DashboardController> {
 
   void _showGroupSelectionDialog() {
     if (controller.groups.isEmpty) {
-      Get.snackbar("No Groups Available", "Create a group before adding an expense.");
+      Get.snackbar(
+          "No Groups Available", "Create a group before adding an expense.");
       return;
     }
 
