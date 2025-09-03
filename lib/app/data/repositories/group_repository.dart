@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart'; // Import this for debugPrint
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/data/models/user_model.dart';
@@ -33,15 +34,35 @@ class GroupRepository {
   }
 
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
-    if (memberIds.isEmpty) return [];
+    // --- THIS IS THE DIAGNOSTIC CODE ---
+    debugPrint("--- Fetching Member Details ---");
+    debugPrint("Attempting to find users with these IDs: $memberIds");
+    // --- END OF DIAGNOSTIC CODE ---
+
+    if (memberIds.isEmpty) {
+      debugPrint("Member IDs list is empty. Returning empty list.");
+      return [];
+    }
     try {
       final snapshot = await _firebaseProvider.firestore
           .collection('users')
           .where(FieldPath.documentId, whereIn: memberIds)
           .get();
+
+      // --- THIS IS THE DIAGNOSTIC CODE ---
+      debugPrint("Firestore query returned ${snapshot.docs.length} documents.");
+      if (snapshot.docs.isEmpty) {
+        debugPrint("WARNING: No matching user documents found in the 'users' collection.");
+      } else {
+        final foundIds = snapshot.docs.map((d) => d.id).toList();
+        debugPrint("Found user documents with these IDs: $foundIds");
+      }
+      debugPrint("-----------------------------");
+      // --- END OF DIAGNOSTIC CODE ---
+
       return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
-      print("Error fetching member details: $e");
+      debugPrint("Error fetching member details: $e");
       return [];
     }
   }
@@ -50,10 +71,21 @@ class GroupRepository {
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
-    // --- THIS IS THE FIX ---
-    // We now fetch the user's profile from Firestore to get their 'fullName'.
-    final userDoc = await _firebaseProvider.getUserDocument(user.uid);
-    final userName = userDoc.data()?['fullName'] as String? ?? user.email ?? 'Member';
+    final userDocRef = _firebaseProvider.firestore.collection('users').doc(user.uid);
+    final userDocSnapshot = await userDocRef.get();
+    String userName;
+
+    if (!userDocSnapshot.exists) {
+      final selfHealedUser = UserModel(
+        uid: user.uid,
+        email: user.email ?? 'No Email',
+        fullName: user.displayName ?? user.email ?? 'New User',
+      );
+      await userDocRef.set(selfHealedUser.toFirestore());
+      userName = selfHealedUser.fullName;
+    } else {
+      userName = userDocSnapshot.data()?['fullName'] as String? ?? user.email ?? 'Member';
+    }
 
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
     final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
@@ -66,7 +98,6 @@ class GroupRepository {
       createdAt: Timestamp.now(),
     );
 
-    // Use the fetched userName
     final creatorAsMember = MemberModel(
       id: user.uid,
       name: userName,
@@ -81,6 +112,7 @@ class GroupRepository {
     await batch.commit();
   }
 
+  // ... (rest of the file remains the same)
   Future<String> addMemberByEmail({
     required String groupId,
     required String email,

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/modules/expenses/controllers/expense_controller.dart';
-import 'package:expensease/app/shared/services/user_service.dart';
 
 class AddExpenseView extends GetView<ExpenseController> {
   const AddExpenseView({super.key});
@@ -10,7 +10,9 @@ class AddExpenseView extends GetView<ExpenseController> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Add Expense to ${controller.group.name}'),
+        title: Obx(() => Text(
+          controller.isLoading.value ? 'Loading...' : 'Add Expense to ${controller.group.name}',
+        )),
         actions: [
           IconButton(
             icon: const Icon(Icons.check),
@@ -19,9 +21,10 @@ class AddExpenseView extends GetView<ExpenseController> {
         ],
       ),
       body: Obx(() {
-        return controller.isLoading.value
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
@@ -64,24 +67,17 @@ class AddExpenseView extends GetView<ExpenseController> {
   }
 
   Widget _buildPayerDropdown() {
-    final UserService userService = UserService();
-    return DropdownButtonFormField<String>(
+    // This Obx correctly rebuilds because controller.members is used directly in its builder
+    return Obx(() => DropdownButtonFormField<String>(
       decoration: InputDecoration(
-        labelText: 'Bought by',
+        labelText: 'Paid by',
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
       value: controller.selectedPayerUid.value,
-      // THIS IS THE FIX: We now map over group.memberIds
-      items: controller.group.memberIds.map((uid) {
+      items: controller.members.map((member) {
         return DropdownMenuItem(
-          value: uid,
-          // Use a FutureBuilder to get the name for each ID
-          child: FutureBuilder<String>(
-            future: userService.getUserName(uid),
-            builder: (context, snapshot) {
-              return Text(snapshot.data ?? 'Loading...');
-            },
-          ),
+          value: member.uid,
+          child: Text(member.fullName),
         );
       }).toList(),
       onChanged: (value) {
@@ -89,11 +85,17 @@ class AddExpenseView extends GetView<ExpenseController> {
           controller.selectedPayerUid.value = value;
         }
       },
-    );
+    ));
   }
 
   Widget _buildParticipantsCard() {
-    final UserService userService = UserService();
+    String getMemberName(String uid) {
+      return controller.members
+          .firstWhere((m) => m.uid == uid,
+          orElse: () => UserModel(uid: uid, fullName: 'Unknown User', email: ''))
+          .fullName;
+    }
+
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -101,34 +103,31 @@ class AddExpenseView extends GetView<ExpenseController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select Participants',
+            const Text('Split Between',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const Divider(height: 24),
-            Obx(() => ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: controller.participantShares.length,
-              itemBuilder: (context, index) {
-                final uid = controller.participantShares.keys.elementAt(index);
-                final shares = controller.participantShares[uid]!;
+            Obx(() {
+              // --- THIS IS THE FIX ---
+              // We access controller.members here to ensure this Obx widget
+              // rebuilds when the member list is loaded from the database.
+              final _ = controller.members.length;
 
-                return FutureBuilder<String>(
-                  future: userService.getUserName(uid),
-                  builder: (context, snapshot) {
-                    return SwitchListTile(
-                      secondary: Checkbox(
-                        value: shares > 0,
-                        onChanged: (_) => controller.toggleParticipant(uid),
-                      ),
-                      title: Text(snapshot.data ?? '...'),
-                      subtitle: Text(shares == 2 ? 'Guest (2x Share)' : 'Normal Share'),
-                      value: shares == 2,
-                      onChanged: shares > 0 ? (_) => controller.toggleGuestStatus(uid) : null,
-                    );
-                  },
-                );
-              },
-            )),
+              return ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: controller.participantShares.length,
+                itemBuilder: (context, index) {
+                  final uid = controller.participantShares.keys.elementAt(index);
+                  final shares = controller.participantShares[uid]!;
+                  return SwitchListTile(
+                    title: Text(getMemberName(uid)),
+                    subtitle: Text(shares == 2 ? 'Guest (2x Share)' : 'Normal Share'),
+                    value: shares > 0,
+                    onChanged: (_) => controller.toggleParticipant(uid),
+                  );
+                },
+              );
+            }),
           ],
         ),
       ),

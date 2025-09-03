@@ -25,9 +25,6 @@ class AuthController extends GetxController {
     resetEmailController = TextEditingController();
   }
 
-  // ✅ FIX: All startup logic (onReady, listeners, etc.) has been REMOVED.
-  // The SplashView now handles this.
-
   @override
   void onClose() {
     fullNameController.dispose();
@@ -43,16 +40,16 @@ class AuthController extends GetxController {
 
     isLoading.value = true;
     try {
-      final userCredential = await _repository.signUpWithEmail(
+      // --- THIS IS THE FIX ---
+      // We now call the updated repository method that handles everything in one go.
+      // We pass the full name directly.
+      await _repository.signUpWithEmail(
         emailController.text.trim(),
         passwordController.text.trim(),
+        fullNameController.text.trim(), // Pass the full name here
       );
-      if (userCredential.user != null) {
-        await _repository.createUserDocument(
-          userCredential.user!,
-          fullNameController.text.trim(),
-        );
-      }
+
+      // The separate createUserDocument call is no longer needed.
       _clearControllers();
       Get.offAllNamed(Routes.DASHBOARD);
     } catch (e) {

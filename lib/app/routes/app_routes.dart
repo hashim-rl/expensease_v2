@@ -34,9 +34,10 @@ abstract class Routes {
   static const PROFILE = _Paths.PROFILE;
   static const EDIT_PROFILE = _Paths.EDIT_PROFILE; // New Route
 
-  // Advanced Modules (2 screens)
+  // Advanced Modules (3 screens) - MEAL route added
   static const COUPLES_MODE_SETUP = _Paths.COUPLES_MODE_SETUP;
   static const FAMILY_MODE_DASHBOARD = _Paths.FAMILY_MODE_DASHBOARD;
+  static const MEAL = _Paths.MEAL; // New Route for Meal Feature
 }
 
 // This private class holds the actual path strings to prevent typos.
@@ -73,9 +74,10 @@ abstract class _Paths {
   static const NOTIFICATIONS = '/notifications';
   static const SETTINGS = '/settings';
   static const PROFILE = '/profile';
-  static const EDIT_PROFILE = '/edit-profile'; // New Path
+  static const EDIT_PROFILE = '/edit-profile';
 
   // Specialized Modes
   static const COUPLES_MODE_SETUP = '/couples-mode-setup';
   static const FAMILY_MODE_DASHBOARD = '/family-mode-dashboard';
+  static const MEAL = '/meal'; // New Path for Meal Feature
 }

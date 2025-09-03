@@ -5,6 +5,8 @@ import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'dart:async';
 
+import '../../../routes/app_routes.dart'; // Import app_routes
+
 class DashboardController extends GetxController {
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
 
@@ -79,6 +81,51 @@ class DashboardController extends GetxController {
   // Method to open the drawer
   void openDrawer() {
     scaffoldKey.currentState?.openDrawer();
+  }
+
+  // --- NEW REUSABLE FUNCTION ---
+  // This function shows the group selection dialog.
+  // We can call it from anywhere, including our MealView.
+  void showGroupSelectionDialog({String? category}) {
+    if (groups.isEmpty) {
+      Get.snackbar(
+          "No Groups Available", "Create a group before adding an expense.");
+      return;
+    }
+
+    Get.dialog(
+      AlertDialog(
+        title: const Text('Select a Group'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Obx(() => ListView.builder(
+            shrinkWrap: true,
+            itemCount: groups.length,
+            itemBuilder: (context, index) {
+              final group = groups[index];
+              return ListTile(
+                title: Text(group.name),
+                onTap: () {
+                  Get.back(); // Close the dialog
+                  // Navigate to Add Expense screen with the selected group
+                  // and the category we want to pre-select
+                  Get.toNamed(
+                    Routes.ADD_EXPENSE,
+                    arguments: {
+                      'group': group,
+                      'category': category, // This will be 'Meal'
+                    },
+                  );
+                },
+              );
+            },
+          )),
+        ),
+        actions: [
+          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
+        ],
+      ),
+    );
   }
 
   @override

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:expensease/app/modules/bills/views/bills_view.dart';
 import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
+import 'package:expensease/app/modules/meal/views/meal_view.dart';
+import 'package:expensease/app/modules/shared_buys/views/shared_buys_view.dart';
 import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/theme/app_colors.dart';
 import 'package:expensease/app/shared/widgets/app_drawer.dart';
@@ -53,13 +56,12 @@ class DashboardView extends GetView<DashboardController> {
             Expanded(
               child: TabBarView(
                 children: [
-                  // --- THIS IS THE FIX ---
-                  // The summary content is now the last item, matching the "Reports" tab.
                   _buildSummaryContent(),
-                  const Center(child: Text("Meals Data Coming Soon")),
-                  const Center(child: Text("Shared Buys Data Coming Soon")),
-                  const Center(child: Text("Bills Data Coming Soon")),
-                   // Moved to the last position
+                  const MealView(),
+                  const SharedBuysView(),
+                  // --- THIS IS THE FINAL FIX ---
+                  // Replace the placeholder with our new BillsView
+                  const BillsView(),
                 ],
               ),
             ),
@@ -175,24 +177,25 @@ class DashboardView extends GetView<DashboardController> {
         if (value == 'create_group') {
           Get.toNamed(Routes.GROUPS_LIST);
         } else {
-          _showGroupSelectionDialog();
+          // This logic is now handled in the DashboardController
+          Get.find<DashboardController>().showGroupSelectionDialog(category: value);
         }
       },
       itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
         const PopupMenuItem<String>(
-          value: 'bill',
+          value: 'Bill',
           child:
           ListTile(leading: Icon(Icons.receipt_long), title: Text('Add Bill')),
         ),
         const PopupMenuItem<String>(
-          value: 'meal',
+          value: 'Meal',
           child:
           ListTile(leading: Icon(Icons.restaurant), title: Text('Add Meal')),
         ),
         const PopupMenuItem<String>(
-          value: 'expense',
+          value: 'Shared Buy',
           child: ListTile(
-              leading: Icon(Icons.shopping_cart), title: Text('Add Expense')),
+              leading: Icon(Icons.shopping_cart), title: Text('Add Shared Buy')),
         ),
         const PopupMenuDivider(),
         const PopupMenuItem<String>(
@@ -217,40 +220,6 @@ class DashboardView extends GetView<DashboardController> {
           ],
         ),
         child: const Icon(Icons.add, size: 40, color: Colors.grey),
-      ),
-    );
-  }
-
-  void _showGroupSelectionDialog() {
-    if (controller.groups.isEmpty) {
-      Get.snackbar(
-          "No Groups Available", "Create a group before adding an expense.");
-      return;
-    }
-
-    Get.dialog(
-      AlertDialog(
-        title: const Text('Select a Group'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Obx(() => ListView.builder(
-            shrinkWrap: true,
-            itemCount: controller.groups.length,
-            itemBuilder: (context, index) {
-              final group = controller.groups[index];
-              return ListTile(
-                title: Text(group.name),
-                onTap: () {
-                  Get.back();
-                  Get.toNamed(Routes.ADD_EXPENSE, arguments: group);
-                },
-              );
-            },
-          )),
-        ),
-        actions: [
-          TextButton(onPressed: () => Get.back(), child: const Text("Cancel")),
-        ],
       ),
     );
   }

@@ -1,14 +1,25 @@
+import 'package:flutter/foundation.dart'; // Import for debugPrint
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:expensease/app/data/repositories/expense_repository.dart';
+import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/models/group_model.dart';
+import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/shared/services/currency_service.dart';
 
+import '../../../data/repositories/expense_repository.dart';
+
 class ExpenseController extends GetxController {
-  final ExpenseRepository _repository = ExpenseRepository();
+  final ExpenseRepository _expenseRepository;
+  final GroupRepository _groupRepository;
   final CurrencyService _currencyService = CurrencyService();
+
+  ExpenseController({
+    required ExpenseRepository expenseRepository,
+    required GroupRepository groupRepository,
+  })  : _expenseRepository = expenseRepository,
+        _groupRepository = groupRepository;
 
   late final GroupModel group;
 
@@ -16,39 +27,87 @@ class ExpenseController extends GetxController {
   final amountController = TextEditingController();
   final dateController = TextEditingController();
 
-  final isLoading = false.obs;
+  final isLoading = true.obs;
   final splitMethod = 'Split Equally'.obs;
   final selectedPayerUid = ''.obs;
   final participantShares = <String, int>{}.obs;
-
-  // Note: Currency and recurring fields are not used in the updated addExpense method,
-  // but can be kept here for UI state if needed later.
+  final members = <UserModel>[].obs;
+  final selectedCategory = 'General'.obs;
   final isRecurring = false.obs;
   final selectedCurrency = 'USD'.obs;
-
 
   @override
   void onInit() {
     super.onInit();
-    final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-    group = Get.arguments as GroupModel;
+    debugPrint("--- ExpenseController onInit ---");
+    _initializeExpenseData();
+  }
 
-    dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+  Future<void> _initializeExpenseData() async {
+    debugPrint("[1] Starting _initializeExpenseData...");
+    isLoading.value = true;
+    try {
+      final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
 
-    if (currentUserUid != null) {
-      selectedPayerUid.value = currentUserUid;
-    }
+      final dynamic args = Get.arguments;
+      debugPrint("[1.5] Received arguments of type: ${args.runtimeType}");
 
-    participantShares.assignAll({
-      for (var memberId in group.memberIds) memberId: 1
-    });
+      if (args is GroupModel) {
+        group = args;
+      } else if (args is Map<String, dynamic>) {
+        group = args['group'] as GroupModel;
+        if (args['category'] != null) {
+          selectedCategory.value = args['category'] as String;
+        }
+      } else {
+        Get.back();
+        Get.snackbar('Error', 'Could not load group data.');
+        return;
+      }
 
-    // FIX 1: Changed groupType to type
-    if (group.type == 'Couple' && group.incomeSplitRatio != null) {
-      splitMethod.value = 'Proportional';
+      debugPrint("[2] Group loaded: '${group.name}', Member IDs: ${group.memberIds}");
+
+      await _fetchMemberDetails();
+
+      dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+      if (currentUserUid != null) {
+        selectedPayerUid.value = currentUserUid;
+      }
+
+      participantShares.assignAll({
+        for (var memberId in group.memberIds) memberId: 1
+      });
+
+      if (group.type == 'Couple' && group.incomeSplitRatio != null) {
+        splitMethod.value = 'Proportional';
+      }
+    } catch (e) {
+      debugPrint("!!!! ERROR in _initializeExpenseData: $e");
+      Get.snackbar('Error', 'Failed to initialize screen: ${e.toString()}');
+    } finally {
+      isLoading.value = false;
+      debugPrint("[4] Finished _initializeExpenseData. isLoading is now false.");
     }
   }
 
+  Future<void> _fetchMemberDetails() async {
+    debugPrint("[3] Starting _fetchMemberDetails...");
+    if (group.memberIds.isNotEmpty) {
+      final memberDetails = await _groupRepository.getMembersDetails(group.memberIds);
+      members.value = memberDetails;
+      debugPrint("   -> Fetched ${memberDetails.length} member details from repository.");
+      if (memberDetails.isNotEmpty) {
+        final names = memberDetails.map((m) => m.fullName).toList();
+        debugPrint("   -> Member names found: $names");
+      }
+    } else {
+      debugPrint("   -> No member IDs in the group to fetch.");
+    }
+    debugPrint("   -> Finished _fetchMemberDetails. controller.members now has ${members.length} items.");
+  }
+
+  // ... (rest of the controller code is unchanged)
   void toggleParticipant(String uid) {
     participantShares[uid] = (participantShares[uid]! > 0) ? 0 : 1;
   }
@@ -78,7 +137,6 @@ class ExpenseController extends GetxController {
 
     isLoading.value = true;
     try {
-      // Currency conversion logic can remain if needed for UI, but won't be saved directly
       double finalAmount = totalAmount;
       if (group.type == 'Trip' && selectedCurrency.value != 'USD') {
         final rate = await _currencyService.getConversionRate(selectedCurrency.value, 'USD');
@@ -91,17 +149,14 @@ class ExpenseController extends GetxController {
           if (entry.value > 0) entry.key: perShareAmount * entry.value
       };
 
-      await _repository.addExpense(
+      await _expenseRepository.addExpense(
         groupId: group.id,
         description: descriptionController.text.trim(),
         totalAmount: finalAmount,
         date: DateFormat('yyyy-MM-dd').parse(dateController.text),
-        // FIX 2: Renamed paidBy to paidById
         paidById: selectedPayerUid.value,
-        // FIX 3: Renamed split to splitBetween
         splitBetween: finalSplit,
-        // FIX 4: Removed parameters that no longer exist in the repository method
-        // originalAmount, originalCurrency, isRecurring are no longer passed
+        category: selectedCategory.value,
       );
 
       Get.back();

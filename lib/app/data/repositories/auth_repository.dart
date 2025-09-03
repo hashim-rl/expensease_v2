@@ -14,11 +14,26 @@ class AuthRepository {
   /// This is the primary way to listen for login or logout events.
   Stream<User?> get authStateChanges => _firebaseProvider.authStateChanges;
 
-  /// Signs up a new user with their email and password.
+  /// Signs up a new user with email/password and creates their user document.
   /// Throws a clear exception if the sign-up fails.
-  Future<UserCredential> signUpWithEmail(String email, String password) async {
+  /// --- THIS IS THE FIX ---
+  /// We now require fullName to ensure the document is created.
+  Future<UserCredential> signUpWithEmail(String email, String password, String fullName) async {
     try {
-      return await _firebaseProvider.signUpWithEmail(email, password);
+      // Step 1: Create the user in Firebase Authentication
+      final userCredential = await _firebaseProvider.signUpWithEmail(email, password);
+      final user = userCredential.user;
+
+      // Step 2: If the auth user was created, immediately create their document in Firestore
+      if (user != null) {
+        await createUserDocument(user, fullName);
+      } else {
+        // This case is rare, but we handle it just in case.
+        throw Exception('User was not created. Please try again.');
+      }
+
+      return userCredential;
+
     } on FirebaseAuthException catch (e) {
       // Re-throw Firebase-specific errors to be handled by the controller.
       throw Exception(e.message ?? 'An error occurred during sign up.');
