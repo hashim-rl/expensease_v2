@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart'; // Import this for debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/data/models/user_model.dart';
@@ -27,6 +27,20 @@ class GroupRepository {
     });
   }
 
+  // NEW METHOD: Fetches a single, complete group document by its ID.
+  Future<GroupModel?> getGroupById(String groupId) async {
+    try {
+      final docSnapshot = await _firebaseProvider.groupsCollection.doc(groupId).get();
+      if (docSnapshot.exists) {
+        return GroupModel.fromFirestore(docSnapshot);
+      }
+      return null;
+    } catch (e) {
+      debugPrint("Error fetching group by ID: $e");
+      return null;
+    }
+  }
+
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
       return snapshot.docs.map((doc) => MemberModel.fromFirestore(doc)).toList();
@@ -34,10 +48,8 @@ class GroupRepository {
   }
 
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
-    // --- THIS IS THE DIAGNOSTIC CODE ---
     debugPrint("--- Fetching Member Details ---");
     debugPrint("Attempting to find users with these IDs: $memberIds");
-    // --- END OF DIAGNOSTIC CODE ---
 
     if (memberIds.isEmpty) {
       debugPrint("Member IDs list is empty. Returning empty list.");
@@ -49,7 +61,6 @@ class GroupRepository {
           .where(FieldPath.documentId, whereIn: memberIds)
           .get();
 
-      // --- THIS IS THE DIAGNOSTIC CODE ---
       debugPrint("Firestore query returned ${snapshot.docs.length} documents.");
       if (snapshot.docs.isEmpty) {
         debugPrint("WARNING: No matching user documents found in the 'users' collection.");
@@ -58,7 +69,6 @@ class GroupRepository {
         debugPrint("Found user documents with these IDs: $foundIds");
       }
       debugPrint("-----------------------------");
-      // --- END OF DIAGNOSTIC CODE ---
 
       return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
     } catch (e) {
@@ -68,6 +78,7 @@ class GroupRepository {
   }
 
   Future<void> createGroup(String groupName, String groupType) async {
+    // ... existing code ...
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
@@ -112,11 +123,11 @@ class GroupRepository {
     await batch.commit();
   }
 
-  // ... (rest of the file remains the same)
   Future<String> addMemberByEmail({
     required String groupId,
     required String email,
   }) async {
+    // ... existing code ...
     final userQuery = await _firebaseProvider.findUserByEmail(email);
 
     if (userQuery.docs.isEmpty) {
@@ -154,6 +165,7 @@ class GroupRepository {
     required String groupId,
     required String name,
   }) async {
+    // ... existing code ...
     final newMemberRef = _firebaseProvider.membersCollection(groupId).doc();
     final newMember = MemberModel(
       id: newMemberRef.id,
@@ -178,6 +190,7 @@ class GroupRepository {
     required String groupId,
     required String memberId,
   }) async {
+    // ... existing code ...
     try {
       final batch = _firebaseProvider.firestore.batch();
       final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
@@ -199,6 +212,7 @@ class GroupRepository {
     required String groupId,
     required String newName,
   }) async {
+    // ... existing code ...
     try {
       final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
       await groupRef.update({'name': newName});
@@ -212,6 +226,7 @@ class GroupRepository {
     required String memberId,
     required String newRole,
   }) async {
+    // ... existing code ...
     try {
       final memberRef =
       _firebaseProvider.membersCollection(groupId).doc(memberId);

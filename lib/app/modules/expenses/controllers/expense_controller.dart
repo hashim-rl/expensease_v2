@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart'; // Import for debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -7,8 +7,7 @@ import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/shared/services/currency_service.dart';
-
-import '../../../data/repositories/expense_repository.dart';
+import 'package:expensease/app/data/repositories/expense_repository.dart';
 
 class ExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository;
@@ -21,7 +20,7 @@ class ExpenseController extends GetxController {
   })  : _expenseRepository = expenseRepository,
         _groupRepository = groupRepository;
 
-  late final GroupModel group;
+  late GroupModel group;
 
   final descriptionController = TextEditingController();
   final amountController = TextEditingController();
@@ -29,7 +28,7 @@ class ExpenseController extends GetxController {
 
   final isLoading = true.obs;
   final splitMethod = 'Split Equally'.obs;
-  final selectedPayerUid = ''.obs;
+  final selectedPayerUid = Rx<String?>(null);
   final participantShares = <String, int>{}.obs;
   final members = <UserModel>[].obs;
   final selectedCategory = 'General'.obs;
@@ -48,22 +47,29 @@ class ExpenseController extends GetxController {
     isLoading.value = true;
     try {
       final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-
       final dynamic args = Get.arguments;
+      late String groupId;
+
       debugPrint("[1.5] Received arguments of type: ${args.runtimeType}");
 
       if (args is GroupModel) {
-        group = args;
+        groupId = args.id;
       } else if (args is Map<String, dynamic>) {
-        group = args['group'] as GroupModel;
+        final groupFromArgs = args['group'] as GroupModel?;
+        if (groupFromArgs == null) throw Exception("Group data is missing from arguments.");
+        groupId = groupFromArgs.id;
         if (args['category'] != null) {
           selectedCategory.value = args['category'] as String;
         }
       } else {
-        Get.back();
-        Get.snackbar('Error', 'Could not load group data.');
-        return;
+        throw Exception("Invalid arguments passed to AddExpenseView.");
       }
+
+      final fullGroup = await _groupRepository.getGroupById(groupId);
+      if (fullGroup == null) {
+        throw Exception("Group not found in the database.");
+      }
+      group = fullGroup;
 
       debugPrint("[2] Group loaded: '${group.name}', Member IDs: ${group.memberIds}");
 
@@ -71,12 +77,16 @@ class ExpenseController extends GetxController {
 
       dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      if (currentUserUid != null) {
+      if (currentUserUid != null && members.any((m) => m.uid == currentUserUid)) {
         selectedPayerUid.value = currentUserUid;
+      } else if (members.isNotEmpty) {
+        selectedPayerUid.value = members.first.uid;
+      } else {
+        selectedPayerUid.value = null;
       }
 
       participantShares.assignAll({
-        for (var memberId in group.memberIds) memberId: 1
+        for (var member in members) member.uid: 1
       });
 
       if (group.type == 'Couple' && group.incomeSplitRatio != null) {
@@ -84,6 +94,7 @@ class ExpenseController extends GetxController {
       }
     } catch (e) {
       debugPrint("!!!! ERROR in _initializeExpenseData: $e");
+      Get.back();
       Get.snackbar('Error', 'Failed to initialize screen: ${e.toString()}');
     } finally {
       isLoading.value = false;
@@ -92,22 +103,17 @@ class ExpenseController extends GetxController {
   }
 
   Future<void> _fetchMemberDetails() async {
-    debugPrint("[3] Starting _fetchMemberDetails...");
+    debugPrint("[3] Starting _fetchMemberDetails for IDs: ${group.memberIds}...");
     if (group.memberIds.isNotEmpty) {
       final memberDetails = await _groupRepository.getMembersDetails(group.memberIds);
       members.value = memberDetails;
-      debugPrint("   -> Fetched ${memberDetails.length} member details from repository.");
-      if (memberDetails.isNotEmpty) {
-        final names = memberDetails.map((m) => m.fullName).toList();
-        debugPrint("   -> Member names found: $names");
-      }
+      debugPrint("   -> Fetched ${memberDetails.length} member details.");
     } else {
       debugPrint("   -> No member IDs in the group to fetch.");
+      members.value = [];
     }
-    debugPrint("   -> Finished _fetchMemberDetails. controller.members now has ${members.length} items.");
   }
 
-  // ... (rest of the controller code is unchanged)
   void toggleParticipant(String uid) {
     participantShares[uid] = (participantShares[uid]! > 0) ? 0 : 1;
   }
@@ -122,6 +128,10 @@ class ExpenseController extends GetxController {
 
   Future<void> addExpense() async {
     if (isLoading.value) return;
+    if (selectedPayerUid.value == null) {
+      Get.snackbar('Error', 'Please select who paid.');
+      return;
+    }
 
     final double? totalAmount = double.tryParse(amountController.text);
     if (totalAmount == null || totalAmount <= 0) {
@@ -154,7 +164,7 @@ class ExpenseController extends GetxController {
         description: descriptionController.text.trim(),
         totalAmount: finalAmount,
         date: DateFormat('yyyy-MM-dd').parse(dateController.text),
-        paidById: selectedPayerUid.value,
+        paidById: selectedPayerUid.value!,
         splitBetween: finalSplit,
         category: selectedCategory.value,
       );
@@ -188,3 +198,4 @@ class ExpenseController extends GetxController {
     super.onClose();
   }
 }
+

@@ -41,10 +41,6 @@ import 'app_routes.dart';
 import '../modules/settings/views/edit_profile_view.dart';
 import '../modules/settings/bindings/edit_profile_binding.dart';
 
-// Imports for the new Meal feature
-import '../modules/meal/bindings/meal_binding.dart';
-import '../modules/meal/views/meal_view.dart';
-
 
 class AppPages {
   static final routes = [
@@ -84,6 +80,5 @@ class AppPages {
     // SPECIALIZED MODES
     GetPage(name: Routes.COUPLES_MODE_SETUP, page: () => const CouplesModeSetupView(), binding: SpecializedModesBinding()),
     GetPage(name: Routes.FAMILY_MODE_DASHBOARD, page: () => const FamilyModeDashboardView(), binding: SpecializedModesBinding()),
-    GetPage(name: Routes.MEAL, page: () => const MealView(), binding: MealBinding()), // New Meal Route Added
   ];
 }
