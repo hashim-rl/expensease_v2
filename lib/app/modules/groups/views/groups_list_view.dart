@@ -141,7 +141,7 @@ class GroupsListView extends GetView<GroupController> {
                   () => DropdownButton<String>(
                 value: controller.selectedGroupType.value,
                 isExpanded: true,
-                items: ['Flatmates', 'Couple', 'Family', 'Trip']
+                items: ['Flatmates','Friends', 'Couple', 'Family', 'Trip']
                     .map(
                       (String value) => DropdownMenuItem<String>(
                     value: value,

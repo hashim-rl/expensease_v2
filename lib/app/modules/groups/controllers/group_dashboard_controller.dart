@@ -84,11 +84,17 @@ class GroupDashboardController extends GetxController {
   }
 
   String getMemberName(String uid) {
-    // This is the corrected part
+    // --- THIS IS THE FIX ---
+    // The UserModel constructor now requires `nickname`. We also now return
+    // the member's nickname instead of their full name for consistency.
     final member = members.firstWhere((m) => m.uid == uid,
-        orElse: () =>
-            UserModel(uid: '', email: '', fullName: 'Unknown'));
-    return member.fullName;
+        orElse: () => UserModel(
+          uid: '',
+          email: '',
+          fullName: 'Unknown',
+          nickname: 'Unknown', // Added missing parameter
+        ));
+    return member.nickname; // Return nickname instead of fullName
   }
 
   @override

@@ -1,3 +1,4 @@
+// --- PLEASE ENSURE THIS IS THE CODE YOU ARE USING ---
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -70,7 +71,6 @@ class ExpenseController extends GetxController {
         throw Exception("Group not found in the database.");
       }
       group = fullGroup;
-
       debugPrint("[2] Group loaded: '${group.name}', Member IDs: ${group.memberIds}");
 
       await _fetchMemberDetails();
@@ -114,19 +114,18 @@ class ExpenseController extends GetxController {
     }
   }
 
-  void toggleParticipant(String uid) {
-    participantShares[uid] = (participantShares[uid]! > 0) ? 0 : 1;
+  void addShare(String uid) {
+    participantShares[uid] = (participantShares[uid] ?? 0) + 1;
   }
 
-  void toggleGuestStatus(String uid) {
-    if (participantShares[uid]! == 1) {
-      participantShares[uid] = 2;
-    } else if (participantShares[uid]! == 2) {
-      participantShares[uid] = 1;
+  void removeShare(String uid) {
+    if (participantShares[uid] != null && participantShares[uid]! > 0) {
+      participantShares[uid] = participantShares[uid]! - 1;
     }
   }
 
   Future<void> addExpense() async {
+    // ... (rest of the addExpense function, no changes needed here)
     if (isLoading.value) return;
     if (selectedPayerUid.value == null) {
       Get.snackbar('Error', 'Please select who paid.');
@@ -198,4 +197,3 @@ class ExpenseController extends GetxController {
     super.onClose();
   }
 }
-

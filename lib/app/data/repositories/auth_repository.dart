@@ -59,10 +59,14 @@ class AuthRepository {
   /// This stores additional user information like their full name.
   Future<void> createUserDocument(User user, String fullName) async {
     try {
+      // --- THIS IS THE FIX ---
+      // The `nickname` field is now required by the UserModel constructor.
+      // We will use the user's full name as their initial nickname.
       final userModel = model.UserModel(
         uid: user.uid,
         email: user.email ?? '',
         fullName: fullName,
+        nickname: fullName, // Set initial nickname to the full name
       );
       await _firebaseProvider.createUserDocument(userModel);
     } catch (e) {
