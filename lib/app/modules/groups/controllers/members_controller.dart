@@ -5,6 +5,9 @@ import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+// --- FIX: IMPORT THE DASHBOARD CONTROLLER ---
+import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
+
 
 class MembersController extends GetxController {
   // Get the repository instance from the bindings
@@ -48,7 +51,8 @@ class MembersController extends GetxController {
 
     final currentUserMember = members.firstWhere(
           (m) => m.id == currentUserId,
-      orElse: () => MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
+      orElse: () =>
+          MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
     );
     currentUserRole.value = currentUserMember.role;
   }
@@ -90,7 +94,15 @@ class MembersController extends GetxController {
         result = await _groupRepository.addPlaceholderMember(
             groupId: group.value.id, name: input);
       }
-      Get.back();
+      Get.back(); // Close the add member dialog
+
+      // --- THIS IS THE FIX ---
+      // After successfully adding a member to the database, we find the
+      // DashboardController that is running in the background and tell it
+      // to re-fetch its list of groups. This ensures the UI always has
+      // the most up-to-date data.
+      Get.find<DashboardController>().fetchUserGroups();
+
       Get.snackbar('Success', result,
           backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
@@ -114,6 +126,8 @@ class MembersController extends GetxController {
         try {
           await _groupRepository.removeMemberFromGroup(
               groupId: group.value.id, memberId: memberId);
+          // --- GOOD PRACTICE: REFRESH ON REMOVE TOO ---
+          Get.find<DashboardController>().fetchUserGroups();
           Get.snackbar('Success', 'Member has been removed.',
               backgroundColor: Colors.green, colorText: Colors.white);
         } catch (e) {

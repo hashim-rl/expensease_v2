@@ -35,21 +35,24 @@ class DashboardController extends GetxController {
       value: summaryData['Paid'],
       title: '${((summaryData['Paid']! / total) * 100).toStringAsFixed(0)}%',
       radius: 50,
-      titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+      titleStyle: const TextStyle(
+          fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
     ));
     sections.add(PieChartSectionData(
       color: Colors.orangeAccent,
       value: summaryData['Owed'],
       title: '${((summaryData['Owed']! / total) * 100).toStringAsFixed(0)}%',
       radius: 50,
-      titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+      titleStyle: const TextStyle(
+          fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
     ));
     sections.add(PieChartSectionData(
       color: Colors.pinkAccent,
       value: summaryData['Due'],
       title: '${((summaryData['Due']! / total) * 100).toStringAsFixed(0)}%',
       radius: 50,
-      titleStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
+      titleStyle: const TextStyle(
+          fontSize: 14, fontWeight: FontWeight.bold, color: Colors.white),
     ));
 
     return sections.obs;
@@ -83,9 +86,8 @@ class DashboardController extends GetxController {
     scaffoldKey.currentState?.openDrawer();
   }
 
-  // --- NEW REUSABLE FUNCTION ---
+  // --- REUSABLE FUNCTION WITH FIX ---
   // This function shows the group selection dialog.
-  // We can call it from anywhere, including our MealView.
   void showGroupSelectionDialog({String? category}) {
     if (groups.isEmpty) {
       Get.snackbar(
@@ -105,17 +107,34 @@ class DashboardController extends GetxController {
               final group = groups[index];
               return ListTile(
                 title: Text(group.name),
-                onTap: () {
-                  Get.back(); // Close the dialog
-                  // Navigate to Add Expense screen with the selected group
-                  // and the category we want to pre-select
-                  Get.toNamed(
-                    Routes.ADD_EXPENSE,
-                    arguments: {
-                      'group': group,
-                      'category': category, // This will be 'Meal'
-                    },
-                  );
+                onTap: () async {
+                  Get.back(); // Close the dialog first
+                  Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false); // Show loading indicator
+
+                  try {
+                    // Fetch the COMPLETE group object from the repository
+                    final fullGroup =
+                    await _groupRepository.getGroupById(group.id);
+                    Get.back(); // Close the loading indicator
+
+                    if (fullGroup != null) {
+                      // Navigate to Add Expense screen with the COMPLETE group object
+                      Get.toNamed(
+                        Routes.ADD_EXPENSE,
+                        arguments: {
+                          // --- THIS IS THE FIX ---
+                          // Changed 'full-group' to 'fullGroup'
+                          'group': fullGroup,
+                          'category': category,
+                        },
+                      );
+                    } else {
+                      Get.snackbar("Error", "Could not load group details.");
+                    }
+                  } catch (e) {
+                    Get.back(); // Close loading indicator on error
+                    Get.snackbar("Error", "An error occurred: $e");
+                  }
                 },
               );
             },

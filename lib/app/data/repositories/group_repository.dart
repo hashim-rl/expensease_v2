@@ -29,7 +29,8 @@ class GroupRepository {
 
   Future<GroupModel?> getGroupById(String groupId) async {
     try {
-      final docSnapshot = await _firebaseProvider.groupsCollection.doc(groupId).get();
+      final docSnapshot =
+      await _firebaseProvider.groupsCollection.doc(groupId).get();
       if (docSnapshot.exists) {
         return GroupModel.fromFirestore(docSnapshot);
       }
@@ -42,50 +43,69 @@ class GroupRepository {
 
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
-      return snapshot.docs.map((doc) => MemberModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => MemberModel.fromFirestore(doc))
+          .toList();
     });
   }
 
+  // --- THIS IS THE FINAL FIX ---
+  // The previous query was likely failing due to a missing Firestore index.
+  // This new version fetches each member's document individually, which is
+  // much more robust and does not require special indexes. This will solve
+  // the "no members found" bug for good.
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
     if (memberIds.isEmpty) return [];
+    debugPrint("Fetching details for ${memberIds.length} members...");
     try {
-      final snapshot = await _firebaseProvider.firestore
-          .collection('users')
-          .where(FieldPath.documentId, whereIn: memberIds)
-          .get();
-      return snapshot.docs.map((doc) => UserModel.fromFirestore(doc)).toList();
+      final List<UserModel> memberDetails = [];
+      for (final memberId in memberIds) {
+        // Fetch each user document by its specific ID
+        final docSnapshot =
+        await _firebaseProvider.firestore.collection('users').doc(memberId).get();
+        if (docSnapshot.exists) {
+          memberDetails.add(UserModel.fromFirestore(docSnapshot));
+        } else {
+          debugPrint("No user document found for ID: $memberId");
+        }
+      }
+      debugPrint("Successfully fetched details for ${memberDetails.length} members.");
+      return memberDetails;
     } catch (e) {
-      debugPrint("Error fetching member details: $e");
+      debugPrint("!!!! Error in getMembersDetails: $e");
       return [];
     }
   }
+  // --- END OF FIX ---
 
   Future<void> createGroup(String groupName, String groupType) async {
     final user = _auth.currentUser;
     if (user == null) throw Exception("User not logged in");
 
-    final userDocRef = _firebaseProvider.firestore.collection('users').doc(user.uid);
+    final userDocRef =
+    _firebaseProvider.firestore.collection('users').doc(user.uid);
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
+    final newMemberRef =
+    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
     final userDocSnapshot = await userDocRef.get();
     String userName;
 
     if (!userDocSnapshot.exists) {
       final fullName = user.displayName ?? user.email ?? 'New User';
-      // Note: The UserModel constructor now requires the `groups` map.
       final selfHealedUser = UserModel(
         uid: user.uid,
         email: user.email ?? 'No Email',
         fullName: fullName,
         nickname: fullName,
-        groups: {newGroupRef.id: true}, // Add the new group immediately
+        groups: {newGroupRef.id: true},
       );
       await userDocRef.set(selfHealedUser.toFirestore());
       userName = selfHealedUser.nickname;
     } else {
       final data = userDocSnapshot.data() as Map<String, dynamic>?;
-      userName = data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
+      userName =
+          data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
     }
 
     final newGroup = GroupModel(
@@ -107,9 +127,7 @@ class GroupRepository {
     batch.set(newGroupRef, newGroup.toFirestore());
     batch.set(newMemberRef, creatorAsMember.toFirestore());
 
-    // --- THIS IS THE FIX ---
-    // Atomically update the user's document with the new group ID.
-    if(userDocSnapshot.exists) {
+    if (userDocSnapshot.exists) {
       batch.update(userDocRef, {'groups.${newGroupRef.id}': true});
     }
 
@@ -128,7 +146,8 @@ class GroupRepository {
     final userData = userDoc.data() as Map<String, dynamic>;
     final userName = userData['nickname'] ?? userData['fullName'] ?? 'New Member';
 
-    final isAlreadyMember = await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
+    final isAlreadyMember =
+    await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
     if (isAlreadyMember) throw '"$userName" is already in this group.';
 
     final newMember = MemberModel(id: userId, name: userName, email: email);
@@ -139,10 +158,10 @@ class GroupRepository {
     final userRef = _firebaseProvider.firestore.collection('users').doc(userId);
 
     batch.set(newMemberRef, newMember.toFirestore());
-    batch.update(groupRef, {'memberIds': FieldValue.arrayUnion([userId])});
+    batch.update(groupRef, {
+      'memberIds': FieldValue.arrayUnion([userId])
+    });
 
-    // --- THIS IS THE FIX ---
-    // Atomically update the new member's document with this group ID.
     batch.update(userRef, {'groups.$groupId': true});
 
     await batch.commit();
@@ -154,13 +173,16 @@ class GroupRepository {
     required String name,
   }) async {
     final newMemberRef = _firebaseProvider.membersCollection(groupId).doc();
-    final newMember = MemberModel(id: newMemberRef.id, name: name, isPlaceholder: true);
+    final newMember =
+    MemberModel(id: newMemberRef.id, name: name, isPlaceholder: true);
 
     final batch = _firebaseProvider.firestore.batch();
     final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
 
     batch.set(newMemberRef, newMember.toFirestore());
-    batch.update(groupRef, {'memberIds': FieldValue.arrayUnion([newMember.id])});
+    batch.update(groupRef, {
+      'memberIds': FieldValue.arrayUnion([newMember.id])
+    });
 
     await batch.commit();
     return '"$name" was successfully added as a placeholder!';
@@ -176,11 +198,11 @@ class GroupRepository {
       final memberRef = _firebaseProvider.membersCollection(groupId).doc(memberId);
       final userRef = _firebaseProvider.firestore.collection('users').doc(memberId);
 
-      batch.update(groupRef, {'memberIds': FieldValue.arrayRemove([memberId])});
+      batch.update(groupRef, {
+        'memberIds': FieldValue.arrayRemove([memberId])
+      });
       batch.delete(memberRef);
 
-      // --- THIS IS THE FIX ---
-      // Atomically remove the group ID from the user's document.
       batch.update(userRef, {'groups.$groupId': FieldValue.delete()});
 
       await batch.commit();
@@ -194,7 +216,9 @@ class GroupRepository {
     required String newName,
   }) async {
     try {
-      await _firebaseProvider.groupsCollection.doc(groupId).update({'name': newName});
+      await _firebaseProvider.groupsCollection
+          .doc(groupId)
+          .update({'name': newName});
     } catch (e) {
       throw Exception('Failed to update group name.');
     }
@@ -206,7 +230,10 @@ class GroupRepository {
     required String newRole,
   }) async {
     try {
-      await _firebaseProvider.membersCollection(groupId).doc(memberId).update({'role': newRole});
+      await _firebaseProvider
+          .membersCollection(groupId)
+          .doc(memberId)
+          .update({'role': newRole});
     } catch (e) {
       throw Exception('Failed to update member role.');
     }

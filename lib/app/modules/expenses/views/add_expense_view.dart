@@ -86,7 +86,8 @@ class AddExpenseView extends GetView<ExpenseController> {
                 // with buttons to add/remove shares.
                 Obx(() {
                   if (controller.members.isEmpty) {
-                    return const Center(child: Text("No members found in this group."));
+                    return const Center(
+                        child: Text("No members found in this group."));
                   }
                   return ListView.builder(
                     shrinkWrap: true,
@@ -95,9 +96,11 @@ class AddExpenseView extends GetView<ExpenseController> {
                     itemBuilder: (context, index) {
                       final member = controller.members[index];
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4.0),
+                        padding:
+                        const EdgeInsets.symmetric(vertical: 4.0),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
                               member.nickname,
@@ -106,16 +109,22 @@ class AddExpenseView extends GetView<ExpenseController> {
                             Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(Icons.remove_circle_outline),
-                                  onPressed: () => controller.removeShare(member.uid),
+                                  icon: const Icon(
+                                      Icons.remove_circle_outline),
+                                  onPressed: () => controller
+                                      .removeShare(member.uid),
                                 ),
                                 Obx(() => Text(
                                   '${controller.participantShares[member.uid] ?? 0}',
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold),
                                 )),
                                 IconButton(
-                                  icon: const Icon(Icons.add_circle_outline),
-                                  onPressed: () => controller.addShare(member.uid),
+                                  icon: const Icon(
+                                      Icons.add_circle_outline),
+                                  onPressed: () =>
+                                      controller.addShare(member.uid),
                                 ),
                               ],
                             ),
@@ -132,6 +141,9 @@ class AddExpenseView extends GetView<ExpenseController> {
                     labelText: 'Category',
                     border: OutlineInputBorder(),
                   ),
+                  // --- FIX STARTS HERE ---
+                  // Added 'Shared Buy' and 'Bill' to the list of items
+                  // so the app won't crash when you navigate from those tabs.
                   items: <String>[
                     'General',
                     'Groceries',
@@ -141,6 +153,8 @@ class AddExpenseView extends GetView<ExpenseController> {
                     'Entertainment',
                     'Dining Out',
                     'Meal',
+                    'Shared Buy',
+                    'Bill',
                     'Other',
                   ].map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
@@ -148,6 +162,7 @@ class AddExpenseView extends GetView<ExpenseController> {
                       child: Text(value),
                     );
                   }).toList(),
+                  // --- FIX ENDS HERE ---
                   onChanged: (String? newValue) {
                     controller.selectedCategory.value = newValue!;
                   },
@@ -161,9 +176,14 @@ class AddExpenseView extends GetView<ExpenseController> {
                         labelText: 'Currency',
                         border: OutlineInputBorder(),
                       ),
-                      items:
-                      <String>['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
-                          .map<DropdownMenuItem<String>>((String value) {
+                      items: <String>[
+                        'USD',
+                        'EUR',
+                        'GBP',
+                        'JPY',
+                        'CAD',
+                        'AUD'
+                      ].map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
                           child: Text(value),

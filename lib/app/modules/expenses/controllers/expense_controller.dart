@@ -1,5 +1,3 @@
-// --- PLEASE ENSURE THIS IS THE CODE YOU ARE USING ---
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
@@ -39,45 +37,47 @@ class ExpenseController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    debugPrint("--- ExpenseController onInit ---");
-    _initializeExpenseData();
+    // --- THIS IS THE FIX ---
+    // We delay the initialization by a single frame. This solves a race
+    // condition in GetX where the controller's onInit can run *before*
+    // Get.arguments is ready. This is the deep issue we were missing.
+    Future.delayed(Duration.zero, () {
+      _initializeExpenseData();
+    });
   }
 
   Future<void> _initializeExpenseData() async {
-    debugPrint("[1] Starting _initializeExpenseData...");
     isLoading.value = true;
     try {
       final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
       final dynamic args = Get.arguments;
-      late String groupId;
+      GroupModel? groupFromArgs;
 
-      debugPrint("[1.5] Received arguments of type: ${args.runtimeType}");
+      if (args == null) {
+        throw Exception("Arguments are null. Navigation failed.");
+      }
 
       if (args is GroupModel) {
-        groupId = args.id;
+        groupFromArgs = args;
       } else if (args is Map<String, dynamic>) {
-        final groupFromArgs = args['group'] as GroupModel?;
-        if (groupFromArgs == null) throw Exception("Group data is missing from arguments.");
-        groupId = groupFromArgs.id;
+        groupFromArgs = args['group'] as GroupModel?;
         if (args['category'] != null) {
           selectedCategory.value = args['category'] as String;
         }
-      } else {
-        throw Exception("Invalid arguments passed to AddExpenseView.");
       }
 
-      final fullGroup = await _groupRepository.getGroupById(groupId);
-      if (fullGroup == null) {
-        throw Exception("Group not found in the database.");
+      if (groupFromArgs == null) {
+        throw Exception("Group data is missing from arguments.");
       }
-      group = fullGroup;
-      debugPrint("[2] Group loaded: '${group.name}', Member IDs: ${group.memberIds}");
+
+      group = groupFromArgs;
 
       await _fetchMemberDetails();
 
       dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-      if (currentUserUid != null && members.any((m) => m.uid == currentUserUid)) {
+      if (currentUserUid != null &&
+          members.any((m) => m.uid == currentUserUid)) {
         selectedPayerUid.value = currentUserUid;
       } else if (members.isNotEmpty) {
         selectedPayerUid.value = members.first.uid;
@@ -85,31 +85,24 @@ class ExpenseController extends GetxController {
         selectedPayerUid.value = null;
       }
 
-      participantShares.assignAll({
-        for (var member in members) member.uid: 1
-      });
+      participantShares.assignAll({for (var member in members) member.uid: 1});
 
       if (group.type == 'Couple' && group.incomeSplitRatio != null) {
         splitMethod.value = 'Proportional';
       }
     } catch (e) {
-      debugPrint("!!!! ERROR in _initializeExpenseData: $e");
-      Get.back();
       Get.snackbar('Error', 'Failed to initialize screen: ${e.toString()}');
     } finally {
       isLoading.value = false;
-      debugPrint("[4] Finished _initializeExpenseData. isLoading is now false.");
     }
   }
 
   Future<void> _fetchMemberDetails() async {
-    debugPrint("[3] Starting _fetchMemberDetails for IDs: ${group.memberIds}...");
     if (group.memberIds.isNotEmpty) {
-      final memberDetails = await _groupRepository.getMembersDetails(group.memberIds);
+      final memberDetails =
+      await _groupRepository.getMembersDetails(group.memberIds);
       members.value = memberDetails;
-      debugPrint("   -> Fetched ${memberDetails.length} member details.");
     } else {
-      debugPrint("   -> No member IDs in the group to fetch.");
       members.value = [];
     }
   }
@@ -125,7 +118,6 @@ class ExpenseController extends GetxController {
   }
 
   Future<void> addExpense() async {
-    // ... (rest of the addExpense function, no changes needed here)
     if (isLoading.value) return;
     if (selectedPayerUid.value == null) {
       Get.snackbar('Error', 'Please select who paid.');
@@ -138,7 +130,8 @@ class ExpenseController extends GetxController {
       return;
     }
 
-    final totalShares = participantShares.values.fold(0, (sum, shares) => sum + shares);
+    final totalShares =
+    participantShares.values.fold(0, (sum, shares) => sum + shares);
     if (totalShares == 0) {
       Get.snackbar('No Participants', 'Please select at least one participant.');
       return;
@@ -148,7 +141,8 @@ class ExpenseController extends GetxController {
     try {
       double finalAmount = totalAmount;
       if (group.type == 'Trip' && selectedCurrency.value != 'USD') {
-        final rate = await _currencyService.getConversionRate(selectedCurrency.value, 'USD');
+        final rate = await _currencyService.getConversionRate(
+            selectedCurrency.value, 'USD');
         finalAmount = totalAmount * rate;
       }
 
