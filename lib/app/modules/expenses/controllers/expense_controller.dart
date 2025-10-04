@@ -21,10 +21,12 @@ class ExpenseController extends GetxController {
 
   late GroupModel group;
 
+  // Form controllers
   final descriptionController = TextEditingController();
   final amountController = TextEditingController();
   final dateController = TextEditingController();
 
+  // Reactive values
   final isLoading = true.obs;
   final splitMethod = 'Split Equally'.obs;
   final selectedPayerUid = Rx<String?>(null);
@@ -37,83 +39,75 @@ class ExpenseController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    // --- THIS IS THE FIX ---
-    // We delay the initialization by a single frame. This solves a race
-    // condition in GetX where the controller's onInit can run *before*
-    // Get.arguments is ready. This is the deep issue we were missing.
-    Future.delayed(Duration.zero, () {
-      _initializeExpenseData();
-    });
+    _initializeExpenseData();
   }
 
-  Future<void> _initializeExpenseData() async {
+  void _initializeExpenseData() {
     isLoading.value = true;
     try {
       final currentUserUid = FirebaseAuth.instance.currentUser?.uid;
-      final dynamic args = Get.arguments;
-      GroupModel? groupFromArgs;
+      final args = Get.arguments as Map<String, dynamic>?;
 
       if (args == null) {
-        throw Exception("Arguments are null. Navigation failed.");
+        throw Exception("No arguments passed to the expense screen.");
       }
 
-      if (args is GroupModel) {
-        groupFromArgs = args;
-      } else if (args is Map<String, dynamic>) {
-        groupFromArgs = args['group'] as GroupModel?;
-        if (args['category'] != null) {
-          selectedCategory.value = args['category'] as String;
-        }
-      }
+      // ✅ Extract group and members
+      final groupFromArgs = args['group'] as GroupModel?;
+      final membersFromArgs = args['members'] as List<UserModel>?;
 
-      if (groupFromArgs == null) {
-        throw Exception("Group data is missing from arguments.");
+      if (groupFromArgs == null || membersFromArgs == null) {
+        throw Exception("Group or member data missing from arguments.");
       }
 
       group = groupFromArgs;
+      members.assignAll(membersFromArgs);
 
-      await _fetchMemberDetails();
+      // Set default category if provided
+      if (args['category'] != null) {
+        selectedCategory.value = args['category'] as String;
+      }
 
+      // Set default date
       dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
+      // ✅ Select default payer
       if (currentUserUid != null &&
           members.any((m) => m.uid == currentUserUid)) {
         selectedPayerUid.value = currentUserUid;
       } else if (members.isNotEmpty) {
         selectedPayerUid.value = members.first.uid;
-      } else {
-        selectedPayerUid.value = null;
       }
 
-      participantShares.assignAll({for (var member in members) member.uid: 1});
+      // Give each member 1 share initially
+      participantShares.assignAll({
+        for (var member in members) member.uid: 1,
+      });
 
+      // Couples mode special case
       if (group.type == 'Couple' && group.incomeSplitRatio != null) {
         splitMethod.value = 'Proportional';
       }
+
+      debugPrint(
+          "ExpenseController initialized with ${members.length} members in group ${group.name}");
     } catch (e) {
-      Get.snackbar('Error', 'Failed to initialize screen: ${e.toString()}');
+      Get.snackbar('Error', 'Failed to initialize: ${e.toString()}');
+      debugPrint("ERROR initializing ExpenseController: $e");
     } finally {
       isLoading.value = false;
     }
   }
 
-  Future<void> _fetchMemberDetails() async {
-    if (group.memberIds.isNotEmpty) {
-      final memberDetails =
-      await _groupRepository.getMembersDetails(group.memberIds);
-      members.value = memberDetails;
-    } else {
-      members.value = [];
-    }
-  }
-
   void addShare(String uid) {
     participantShares[uid] = (participantShares[uid] ?? 0) + 1;
+    participantShares.refresh();
   }
 
   void removeShare(String uid) {
-    if (participantShares[uid] != null && participantShares[uid]! > 0) {
+    if ((participantShares[uid] ?? 0) > 0) {
       participantShares[uid] = participantShares[uid]! - 1;
+      participantShares.refresh();
     }
   }
 
@@ -124,14 +118,14 @@ class ExpenseController extends GetxController {
       return;
     }
 
-    final double? totalAmount = double.tryParse(amountController.text);
+    final totalAmount = double.tryParse(amountController.text);
     if (totalAmount == null || totalAmount <= 0) {
       Get.snackbar('Invalid Amount', 'Please enter a valid amount.');
       return;
     }
 
     final totalShares =
-    participantShares.values.fold(0, (sum, shares) => sum + shares);
+    participantShares.values.fold<int>(0, (sum, shares) => sum + shares);
     if (totalShares == 0) {
       Get.snackbar('No Participants', 'Please select at least one participant.');
       return;
@@ -140,17 +134,24 @@ class ExpenseController extends GetxController {
     isLoading.value = true;
     try {
       double finalAmount = totalAmount;
+
+      // ✅ Currency conversion (Trip groups only)
       if (group.type == 'Trip' && selectedCurrency.value != 'USD') {
         final rate = await _currencyService.getConversionRate(
             selectedCurrency.value, 'USD');
         finalAmount = totalAmount * rate;
       }
 
-      final double perShareAmount = finalAmount / totalShares;
-      final Map<String, double> finalSplit = {
-        for (var entry in participantShares.entries)
-          if (entry.value > 0) entry.key: perShareAmount * entry.value
-      };
+      // ✅ Split shares
+      final Map<String, double> finalSplit = {};
+      if (totalShares > 0) {
+        final double perShareAmount = finalAmount / totalShares;
+        for (var entry in participantShares.entries) {
+          if (entry.value > 0) {
+            finalSplit[entry.key] = perShareAmount * entry.value;
+          }
+        }
+      }
 
       await _expenseRepository.addExpense(
         groupId: group.id,
@@ -165,6 +166,7 @@ class ExpenseController extends GetxController {
       Get.back();
       Get.snackbar('Success!', 'Expense added successfully.');
     } catch (e) {
+      debugPrint("ERROR adding expense: $e");
       Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
     } finally {
       isLoading.value = false;

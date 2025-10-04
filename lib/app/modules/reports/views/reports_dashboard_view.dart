@@ -117,7 +117,7 @@ class ReportsDashboardView extends GetView<ReportsController> {
                   style: TextStyle(color: isOwed ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
                 ),
               );
-            }).toList(),
+            }),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: controller.generateAndPreviewPdf,

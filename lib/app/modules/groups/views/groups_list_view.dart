@@ -54,7 +54,14 @@ class GroupsListView extends GetView<GroupController> {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         elevation: 4,
         child: InkWell(
-          onTap: () => Get.toNamed(Routes.GROUP_DASHBOARD, arguments: group),
+          // --- THIS IS THE FIX ---
+          // The navigation call is now simplified to use only the route name
+          // and the arguments parameter. This is the most reliable method.
+          onTap: () => Get.toNamed(
+            Routes.GROUP_DASHBOARD,
+            arguments: group,
+          ),
+          // --- END OF FIX ---
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -73,7 +80,6 @@ class GroupsListView extends GetView<GroupController> {
                   errorBuilder: (context, error, stackTrace) {
                     return const Center(child: Icon(Icons.broken_image));
                   },
-
                 ),
               ),
               Padding(
@@ -90,7 +96,6 @@ class GroupsListView extends GetView<GroupController> {
                                   fontSize: 18, fontWeight: FontWeight.bold),
                               overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 4),
-                          // FIX: Renamed groupType to type
                           Text(group.type,
                               style: const TextStyle(color: Colors.grey)),
                         ],
@@ -141,7 +146,7 @@ class GroupsListView extends GetView<GroupController> {
                   () => DropdownButton<String>(
                 value: controller.selectedGroupType.value,
                 isExpanded: true,
-                items: ['Flatmates','Friends', 'Couple', 'Family', 'Trip']
+                items: ['Flatmates', 'Friends', 'Couple', 'Family', 'Trip']
                     .map(
                       (String value) => DropdownMenuItem<String>(
                     value: value,

@@ -25,6 +25,16 @@ class GroupDashboardController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+    // --- THIS IS THE FINAL FIX ---
+    // This solves the race condition where onInit runs before Get.arguments is ready.
+    // By delaying the initialization by a single frame, we guarantee that the
+    // navigation is complete and the group data is available.
+    Future.delayed(Duration.zero, () {
+      _initializeDashboard();
+    });
+  }
+
+  void _initializeDashboard() {
     final groupArg = Get.arguments as GroupModel?;
     if (groupArg == null) {
       isLoading.value = false;
@@ -34,6 +44,7 @@ class GroupDashboardController extends GetxController {
     group.value = groupArg;
     _fetchMemberDetailsAndExpenses();
   }
+  // --- END OF FIX ---
 
   Future<void> _fetchMemberDetailsAndExpenses() async {
     isLoading.value = true;
@@ -84,17 +95,14 @@ class GroupDashboardController extends GetxController {
   }
 
   String getMemberName(String uid) {
-    // --- THIS IS THE FIX ---
-    // The UserModel constructor now requires `nickname`. We also now return
-    // the member's nickname instead of their full name for consistency.
     final member = members.firstWhere((m) => m.uid == uid,
         orElse: () => UserModel(
           uid: '',
           email: '',
           fullName: 'Unknown',
-          nickname: 'Unknown', // Added missing parameter
+          nickname: 'Unknown',
         ));
-    return member.nickname; // Return nickname instead of fullName
+    return member.nickname;
   }
 
   @override

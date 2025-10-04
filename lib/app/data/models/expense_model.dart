@@ -5,12 +5,12 @@ class ExpenseModel {
   final String description;
   final double totalAmount;
   final DateTime date;
-  final String paidById; // FIX 1: Renamed for clarity
-  final Map<String, double> splitBetween; // FIX 2: Renamed for clarity
+  final String paidById;
+  final Map<String, double> splitBetween;
   final String? category;
   final String? notes;
   final String? receiptUrl;
-  final Timestamp createdAt; // FIX 3: Added for better sorting
+  final Timestamp createdAt;
 
   ExpenseModel({
     required this.id,
@@ -26,7 +26,8 @@ class ExpenseModel {
   });
 
   /// Creates an ExpenseModel from a Firestore document snapshot.
-  factory ExpenseModel.fromSnapshot(DocumentSnapshot<Map<String, dynamic>> doc) { // FIX 4: Renamed
+  factory ExpenseModel.fromSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
 
     return ExpenseModel(
@@ -36,17 +37,21 @@ class ExpenseModel {
       date: (data['date'] as Timestamp? ?? Timestamp.now()).toDate(),
       paidById: data['paidById'] ?? '',
       splitBetween: (data['splitBetween'] is Map)
-          ? Map<String, double>.from(data['splitBetween'])
+          ? Map<String, double>.from(
+          data['splitBetween'].map((key, value) =>
+              MapEntry(key.toString(), (value as num).toDouble())))
           : {},
       category: data['category'],
       notes: data['notes'],
       receiptUrl: data['receiptUrl'],
-      createdAt: data['createdAt'] ?? Timestamp.now(),
+      createdAt: data['createdAt'] is Timestamp
+          ? data['createdAt']
+          : Timestamp.now(),
     );
   }
 
   /// Converts the ExpenseModel to a map for Firestore storage.
-  Map<String, dynamic> toFirestore() { // FIX 4: Renamed
+  Map<String, dynamic> toFirestore() {
     return {
       'description': description,
       'totalAmount': totalAmount,

@@ -40,8 +40,8 @@ class SharedDocumentsView extends GetView<FamilyFeaturesController> {
       }),
       floatingActionButton: FloatingActionButton(
         onPressed: controller.uploadDocument,
-        child: const Icon(Icons.upload_file),
         tooltip: 'Upload Document',
+        child: const Icon(Icons.upload_file),
       ),
     );
   }

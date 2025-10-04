@@ -19,7 +19,7 @@ class FamilyRepository {
     final task = FamilyTaskModel(
       id: FirebaseFirestore.instance.collection('tmp').doc().id,
       title: title,
-      createdBy: _uid!,
+      createdBy: _uid,
       isCompleted: false,
     );
     await _firebaseProvider.addTask(groupId, task);
@@ -41,7 +41,7 @@ class FamilyRepository {
       id: FirebaseFirestore.instance.collection('tmp').doc().id,
       fileName: fileName,
       downloadUrl: downloadUrl,
-      uploadedBy: _uid!,
+      uploadedBy: _uid,
       uploadDate: Timestamp.now(),
     );
     await _firebaseProvider.addDocument(groupId, doc);

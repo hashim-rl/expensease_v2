@@ -103,7 +103,7 @@ class GroupRepository {
       await userDocRef.set(selfHealedUser.toFirestore());
       userName = selfHealedUser.nickname;
     } else {
-      final data = userDocSnapshot.data() as Map<String, dynamic>?;
+      final data = userDocSnapshot.data();
       userName =
           data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
     }
@@ -143,7 +143,7 @@ class GroupRepository {
 
     final userDoc = userQuery.docs.first;
     final userId = userDoc.id;
-    final userData = userDoc.data() as Map<String, dynamic>;
+    final userData = userDoc.data();
     final userName = userData['nickname'] ?? userData['fullName'] ?? 'New Member';
 
     final isAlreadyMember =

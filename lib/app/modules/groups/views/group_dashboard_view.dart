@@ -12,14 +12,18 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Obx(
             () {
-          if (controller.isLoading.value && controller.expenses.isEmpty) {
-            return const Center(child: CircularProgressIndicator());
+          // Add a null check here to prevent crashes while group data is loading
+          if (controller.group.value == null) {
+            if (controller.isLoading.value) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            return const Center(child: Text("Error: Group data is missing."));
           }
+          // The rest of your UI builds here
           return DefaultTabController(
             length: 2,
             child: NestedScrollView(
@@ -54,10 +58,17 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => Get.toNamed(
-          '${Routes.ADD_EXPENSE}/${controller.group.value!.id}',
-          arguments: controller.group.value,
-        ),
+        onPressed: () {
+          if (controller.group.value != null) {
+            Get.toNamed(
+              Routes.ADD_EXPENSE,
+              arguments: {
+                'group': controller.group.value,
+                'members': controller.members.toList(),
+              },
+            );
+          }
+        },
         backgroundColor: AppColors.primaryBlue,
         child: const Icon(Icons.add, color: Colors.white),
       ),
@@ -89,10 +100,14 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
         IconButton(
           tooltip: "Group Settings",
           icon: const Icon(Icons.settings_outlined),
-          onPressed: () => Get.toNamed(
-            '${Routes.MEMBERS_PERMISSIONS}/${controller.group.value!.id}',
-            arguments: controller.group.value,
-          ),
+          onPressed: () {
+            if (controller.group.value != null) {
+              Get.toNamed(
+                Routes.MEMBERS_PERMISSIONS,
+                arguments: controller.group.value,
+              );
+            }
+          },
         ),
       ],
     );
@@ -194,8 +209,14 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: owes || isOwed
-                      ? () => Get.toNamed(
-                      '${Routes.SETTLE_UP}/${controller.group.value!.id}')
+                      ? () {
+                    if (controller.group.value != null) {
+                      Get.toNamed(
+                        Routes.SETTLE_UP,
+                        arguments: controller.group.value,
+                      );
+                    }
+                  }
                       : null,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primaryBlue,
@@ -290,8 +311,8 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
 
           final color = balance >= 0 ? AppColors.green : AppColors.red;
           final text = balance >= 0
-              ? '${currencyFormat.format(balance)}'
-              : '${currencyFormat.format(balance.abs())}';
+              ? currencyFormat.format(balance)
+              : currencyFormat.format(balance.abs());
           final prefix = balance >= 0 ? 'Gets back ' : 'Owes ';
 
           return Card(
