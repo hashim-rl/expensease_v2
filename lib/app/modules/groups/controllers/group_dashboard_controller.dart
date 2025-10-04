@@ -27,7 +27,7 @@ class GroupDashboardController extends GetxController {
     super.onInit();
     // --- THIS IS THE FINAL FIX ---
     // This solves the race condition where onInit runs before Get.arguments is ready.
-    // By delaying the initialization by a single frame, we guarantee that the
+    // By delaying the initialization by a single frame,we guarantee that the
     // navigation is complete and the group data is available.
     Future.delayed(Duration.zero, () {
       _initializeDashboard();
