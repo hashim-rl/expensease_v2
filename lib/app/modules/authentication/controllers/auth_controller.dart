@@ -34,22 +34,21 @@ class AuthController extends GetxController {
     super.onClose();
   }
 
+  // --- THIS IS THE UPDATED SIGN-UP LOGIC ---
   Future<void> signUp() async {
     final isValid = signUpFormKey.currentState?.validate() ?? false;
     if (!isValid) return;
 
     isLoading.value = true;
     try {
-      // --- THIS IS THE FIX ---
-      // We now call the updated repository method that handles everything in one go.
-      // We pass the full name directly.
+      // The repository now handles creating the auth user and their
+      // database document in a single, reliable call.
       await _repository.signUpWithEmail(
         emailController.text.trim(),
         passwordController.text.trim(),
-        fullNameController.text.trim(), // Pass the full name here
+        fullNameController.text.trim(),
       );
 
-      // The separate createUserDocument call is no longer needed.
       _clearControllers();
       Get.offAllNamed(Routes.DASHBOARD);
     } catch (e) {

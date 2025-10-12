@@ -86,8 +86,7 @@ class DashboardController extends GetxController {
     scaffoldKey.currentState?.openDrawer();
   }
 
-  // --- REUSABLE FUNCTION WITH FIX ---
-  // This function shows the group selection dialog.
+  // --- THIS IS THE UPDATED FUNCTION WITH LOGGING ---
   void showGroupSelectionDialog({String? category}) {
     if (groups.isEmpty) {
       Get.snackbar(
@@ -112,25 +111,32 @@ class DashboardController extends GetxController {
                   Get.dialog(const Center(child: CircularProgressIndicator()), barrierDismissible: false); // Show loading indicator
 
                   try {
-                    // Fetch the COMPLETE group object from the repository
-                    final fullGroup =
-                    await _groupRepository.getGroupById(group.id);
+                    // 1. Fetch the complete group details to get the full memberIds list.
+                    final fullGroup = await _groupRepository.getGroupById(group.id);
+                    if (fullGroup == null) {
+                      throw Exception("Could not load group details.");
+                    }
+
+                    // 2. Fetch all member details using their IDs.
+                    final members = await _groupRepository.getMembersDetails(fullGroup.memberIds);
                     Get.back(); // Close the loading indicator
 
-                    if (fullGroup != null) {
-                      // Navigate to Add Expense screen with the COMPLETE group object
-                      Get.toNamed(
-                        Routes.ADD_EXPENSE,
-                        arguments: {
-                          // --- THIS IS THE FIX ---
-                          // Changed 'full-group' to 'fullGroup'
-                          'group': fullGroup,
-                          'category': category,
-                        },
-                      );
-                    } else {
-                      Get.snackbar("Error", "Could not load group details.");
-                    }
+                    // --- TRACER BULLETS START ---
+                    debugPrint("--- TRACER: Navigating to Add Expense Screen ---");
+                    debugPrint("--- TRACER: Group Name: ${fullGroup.name}");
+                    debugPrint("--- TRACER: Group Member IDs: ${fullGroup.memberIds}");
+                    debugPrint("--- TRACER: Members being passed (${members.length}): ${members.map((m) => m.nickname).toList()}");
+                    // --- TRACER BULLETS END ---
+
+                    // 3. Navigate with ALL the necessary data.
+                    Get.toNamed(
+                      Routes.ADD_EXPENSE,
+                      arguments: {
+                        'group': fullGroup,
+                        'members': members, // Pass the full member list here
+                        'category': category,
+                      },
+                    );
                   } catch (e) {
                     Get.back(); // Close loading indicator on error
                     Get.snackbar("Error", "An error occurred: $e");

@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:expensease/app/data/models/user_model.dart' as model;
 import 'package:expensease/app/data/providers/firebase_provider.dart';
+import 'package:flutter/foundation.dart';
 
 /// AuthRepository handles all authentication-related communication
 /// with the Firebase backend. It acts as a bridge between the
@@ -14,64 +15,52 @@ class AuthRepository {
   /// This is the primary way to listen for login or logout events.
   Stream<User?> get authStateChanges => _firebaseProvider.authStateChanges;
 
-  /// Signs up a new user with email/password and creates their user document.
-  /// Throws a clear exception if the sign-up fails.
-  /// --- THIS IS THE FIX ---
-  /// We now require fullName to ensure the document is created.
+  /// --- THIS IS THE UPDATED ATOMIC SIGN-UP FUNCTION ---
+  /// Signs up a user and creates their Firestore document in a single, robust operation.
   Future<UserCredential> signUpWithEmail(String email, String password, String fullName) async {
     try {
+      debugPrint("--- AUTH TRACE: Starting user sign-up for email: $email");
+
       // Step 1: Create the user in Firebase Authentication
       final userCredential = await _firebaseProvider.signUpWithEmail(email, password);
       final user = userCredential.user;
 
-      // Step 2: If the auth user was created, immediately create their document in Firestore
       if (user != null) {
-        await createUserDocument(user, fullName);
+        debugPrint("--- AUTH TRACE: Firebase Auth user created successfully with UID: ${user.uid}");
+        // Step 2: Immediately create their user document in Firestore.
+        // This ensures data integrity.
+        final userModel = model.UserModel(
+          uid: user.uid,
+          email: user.email ?? 'no-email@provided.com',
+          fullName: fullName.trim().isNotEmpty ? fullName.trim() : 'New User',
+          nickname: fullName.trim().isNotEmpty ? fullName.trim() : 'New User', // Default nickname to full name
+        );
+        await _firebaseProvider.createUserDocument(userModel);
+        debugPrint("--- AUTH TRACE: Firestore document created for user: ${user.uid}");
       } else {
         // This case is rare, but we handle it just in case.
-        throw Exception('User was not created. Please try again.');
+        throw Exception('User authentication failed after creation. Please try again.');
       }
 
       return userCredential;
-
     } on FirebaseAuthException catch (e) {
+      debugPrint("!!!! AUTH ERROR (FirebaseAuth): ${e.message}");
       // Re-throw Firebase-specific errors to be handled by the controller.
       throw Exception(e.message ?? 'An error occurred during sign up.');
     } catch (e) {
+      debugPrint("!!!! AUTH ERROR (General): ${e.toString()}");
       throw Exception('An unknown error occurred. Please try again.');
     }
   }
 
   /// Logs in an existing user with their email and password.
-  /// Throws a clear exception if the login fails.
   Future<UserCredential> logInWithEmail(String email, String password) async {
     try {
       return await _firebaseProvider.logInWithEmail(email, password);
     } on FirebaseAuthException catch (e) {
-      // Re-throw Firebase-specific errors.
       throw Exception(e.message ?? 'An error occurred during login.');
     } catch (e) {
       throw Exception('An unknown error occurred. Please try again.');
-    }
-  }
-
-  /// Creates a user document in the Firestore database after successful sign-up.
-  /// This stores additional user information like their full name.
-  Future<void> createUserDocument(User user, String fullName) async {
-    try {
-      // --- THIS IS THE FIX ---
-      // The `nickname` field is now required by the UserModel constructor.
-      // We will use the user's full name as their initial nickname.
-      final userModel = model.UserModel(
-        uid: user.uid,
-        email: user.email ?? '',
-        fullName: fullName,
-        nickname: fullName, // Set initial nickname to the full name
-      );
-      await _firebaseProvider.createUserDocument(userModel);
-    } catch (e) {
-      // It's important to handle potential errors when writing to the database.
-      throw Exception('Failed to save user details. Please try again.');
     }
   }
 
@@ -102,7 +91,6 @@ class AuthRepository {
     try {
       await _firebaseProvider.signOut();
     } catch (e) {
-      // While less common, sign-out can also fail.
       throw Exception('Error signing out. Please try again.');
     }
   }

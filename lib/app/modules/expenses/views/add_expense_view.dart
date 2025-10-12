@@ -19,10 +19,40 @@ class AddExpenseView extends GetView<ExpenseController> {
           ),
         ],
       ),
-      body: Obx(
-            () => controller.isLoading.value
-            ? const Center(child: CircularProgressIndicator())
-            : SingleChildScrollView(
+      body: Obx(() {
+        // --- THIS IS THE INTELLIGENT UI FIX ---
+        // 1. Explicitly show loading state
+        if (controller.isLoading.value) {
+          debugPrint("--- UI TRACE: AddExpenseView is loading...");
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        // 2. Handle truly empty member list with a clear message
+        if (controller.members.isEmpty) {
+          debugPrint("--- UI TRACE: AddExpenseView found no members.");
+          return const Center(
+            child: Padding(
+              padding: EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.people_alt_outlined, size: 50, color: Colors.grey),
+                  SizedBox(height: 10),
+                  Text(
+                    'No members found in this group. Please add members to the group first.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+        // --- END OF UI FIX ---
+
+        // If we have members, build the expense form.
+        debugPrint("--- UI TRACE: AddExpenseView rendering with ${controller.members.length} members.");
+        return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             child: Column(
@@ -56,22 +86,33 @@ class AddExpenseView extends GetView<ExpenseController> {
                   onTap: controller.selectDate,
                 ),
                 const SizedBox(height: 16.0),
-                DropdownButtonFormField<String>(
+                // CRITICAL: The `Obx` widget ensures this dropdown rebuilds when `controller.members` changes.
+                Obx(() => DropdownButtonFormField<String>(
                   value: controller.selectedPayerUid.value,
                   decoration: const InputDecoration(
                     labelText: 'Paid by',
                     border: OutlineInputBorder(),
                   ),
+                  // Ensure the items list is built from the observed `controller.members`
                   items: controller.members.map((UserModel member) {
                     return DropdownMenuItem<String>(
                       value: member.uid,
+                      // Use the robust `nickname` from UserModel
                       child: Text(member.nickname),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
                     controller.selectedPayerUid.value = newValue;
+                    debugPrint("--- UI TRACE: Payer selected: ${controller.members.firstWhereOrNull((m) => m.uid == newValue)?.nickname}");
                   },
-                ),
+                  // Add a validator to ensure a payer is selected
+                  validator: (value) {
+                    if (value == null) {
+                      return 'Please select who paid';
+                    }
+                    return null;
+                  },
+                )),
                 const SizedBox(height: 24.0),
                 const Text(
                   'Split between',
@@ -81,59 +122,45 @@ class AddExpenseView extends GetView<ExpenseController> {
                   ),
                 ),
                 const SizedBox(height: 8.0),
-                // --- THIS IS THE FIX & NEW FEATURE ---
-                // This ListView builder creates a row for each member
-                // with buttons to add/remove shares.
-                Obx(() {
-                  if (controller.members.isEmpty) {
-                    return const Center(
-                        child: Text("No members found in this group."));
-                  }
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: controller.members.length,
-                    itemBuilder: (context, index) {
-                      final member = controller.members[index];
-                      return Padding(
-                        padding:
-                        const EdgeInsets.symmetric(vertical: 4.0),
-                        child: Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              member.nickname,
-                              style: const TextStyle(fontSize: 16),
-                            ),
-                            Row(
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                      Icons.remove_circle_outline),
-                                  onPressed: () => controller
-                                      .removeShare(member.uid),
-                                ),
-                                Obx(() => Text(
-                                  '${controller.participantShares[member.uid] ?? 0}',
-                                  style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold),
-                                )),
-                                IconButton(
-                                  icon: const Icon(
-                                      Icons.add_circle_outline),
-                                  onPressed: () =>
-                                      controller.addShare(member.uid),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                }),
+                // Ensure this ListView also observes changes to members
+                Obx(() => ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: controller.members.length,
+                  itemBuilder: (context, index) {
+                    final member = controller.members[index];
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            member.nickname, // Use the robust `nickname`
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                          Row(
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove_circle_outline),
+                                onPressed: () => controller.removeShare(member.uid),
+                              ),
+                              Obx(() => Text(
+                                '${controller.participantShares[member.uid] ?? 0}',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold),
+                              )),
+                              IconButton(
+                                icon: const Icon(Icons.add_circle_outline),
+                                onPressed: () => controller.addShare(member.uid),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                )),
                 const SizedBox(height: 24.0),
                 DropdownButtonFormField<String>(
                   value: controller.selectedCategory.value,
@@ -141,28 +168,15 @@ class AddExpenseView extends GetView<ExpenseController> {
                     labelText: 'Category',
                     border: OutlineInputBorder(),
                   ),
-                  // --- FIX STARTS HERE ---
-                  // Added 'Shared Buy' and 'Bill' to the list of items
-                  // so the app won't crash when you navigate from those tabs.
                   items: <String>[
-                    'General',
-                    'Groceries',
-                    'Transport',
-                    'Utilities',
-                    'Rent',
-                    'Entertainment',
-                    'Dining Out',
-                    'Meal',
-                    'Shared Buy',
-                    'Bill',
-                    'Other',
+                    'General', 'Groceries', 'Transport', 'Utilities', 'Rent', 'Entertainment',
+                    'Dining Out', 'Meal', 'Shared Buy', 'Bill', 'Other',
                   ].map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
                     );
                   }).toList(),
-                  // --- FIX ENDS HERE ---
                   onChanged: (String? newValue) {
                     controller.selectedCategory.value = newValue!;
                   },
@@ -177,12 +191,7 @@ class AddExpenseView extends GetView<ExpenseController> {
                         border: OutlineInputBorder(),
                       ),
                       items: <String>[
-                        'USD',
-                        'EUR',
-                        'GBP',
-                        'JPY',
-                        'CAD',
-                        'AUD'
+                        'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD'
                       ].map<DropdownMenuItem<String>>((String value) {
                         return DropdownMenuItem<String>(
                           value: value,
@@ -211,8 +220,8 @@ class AddExpenseView extends GetView<ExpenseController> {
               ],
             ),
           ),
-        ),
-      ),
+        );
+      }),
     );
   }
 }

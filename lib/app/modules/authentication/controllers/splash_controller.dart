@@ -10,16 +10,23 @@ class SplashController extends GetxController {
     _initializeApp();
   }
 
+  /// --- THIS IS THE DEFINITIVE FIX FOR THE RACE CONDITION ---
   Future<void> _initializeApp() async {
-    // Wait for 3 seconds to show the splash screen.
-    await Future.delayed(const Duration(seconds: 3));
+    // This is a short, fixed delay for aesthetic purposes only.
+    // The actual navigation logic no longer depends on this timer.
+    await Future.delayed(const Duration(seconds: 2));
 
-    // Manually check if a user is currently logged in.
-    if (FirebaseAuth.instance.currentUser != null) {
-      // If they are, go directly to the dashboard.
+    // This is the correct way to check for authentication state on startup.
+    // `authStateChanges().first` waits for the Firebase SDK to finish its
+    // initialization and give us the FIRST definitive status of the user.
+    final user = await FirebaseAuth.instance.authStateChanges().first;
+
+    // Now, we can reliably navigate based on the result.
+    if (user != null) {
+      // The user is confirmed to be logged in.
       Get.offAllNamed(Routes.DASHBOARD);
     } else {
-      // If not, go to the authentication hub.
+      // The user is confirmed to be logged out.
       Get.offAllNamed(Routes.AUTH_HUB);
     }
   }
