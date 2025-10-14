@@ -10,17 +10,23 @@ import 'package:expensease/app/data/repositories/family_repository.dart';
 class AppBinding extends Bindings {
   @override
   void dependencies() {
-    // Core Providers & Services
-    Get.put(FirebaseProvider(), permanent: true);
+    // --- THIS IS THE DEFINITIVE FIX FOR DEPENDENCY INJECTION ---
+    // This binding now uses `Get.lazyPut` without `fenix` or `permanent`.
+    // Services will be created when needed and disposed of automatically when
+    // no longer in use, which is a more efficient use of memory.
+    // The critical AuthService is already handled permanently in main.dart.
 
-    // Core Repositories (make them permanent so they are always available)
-    Get.put(AuthRepository(Get.find()), permanent: true);
-    Get.put(UserRepository(), permanent: true);
-    Get.put(GroupRepository(), permanent: true);
-    Get.put(ExpenseRepository(), permanent: true);
-    Get.put(FamilyRepository(), permanent: true);
+    // Core Provider
+    Get.lazyPut(() => FirebaseProvider());
 
-    // Core Controllers (also permanent and always available)
-    Get.put(AuthController(), permanent: true);
+    // Core Repositories - they are created on-demand.
+    Get.lazyPut(() => AuthRepository(Get.find()));
+    Get.lazyPut(() => UserRepository());
+    Get.lazyPut(() => GroupRepository());
+    Get.lazyPut(() => ExpenseRepository());
+    Get.lazyPut(() => FamilyRepository());
+
+    // Authentication Controller
+    Get.lazyPut(() => AuthController());
   }
 }

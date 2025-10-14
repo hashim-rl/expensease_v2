@@ -5,22 +5,17 @@ import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-// --- FIX: IMPORT THE DASHBOARD CONTROLLER ---
 import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
 
-
 class MembersController extends GetxController {
-  // Get the repository instance from the bindings
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
 
-  // --- STATE MANAGEMENT ---
   final Rx<GroupModel> group = (Get.arguments as GroupModel).obs;
   final members = <MemberModel>[].obs;
   final isLoading = true.obs;
   final isAddingMember = false.obs;
   final RxString currentUserRole = 'Viewer'.obs;
 
-  // --- FORM CONTROLLERS ---
   late TextEditingController addMemberInputController;
   late TextEditingController groupNameController;
   StreamSubscription? _membersSubscription;
@@ -31,17 +26,18 @@ class MembersController extends GetxController {
     addMemberInputController = TextEditingController();
     groupNameController = TextEditingController(text: group.value.name);
 
-    // Listen to the stream of members from the repository
-    _membersSubscription = _groupRepository
-        .getMembersStream(group.value.id)
-        .listen((memberList) {
-      members.value = memberList;
-      _updateCurrentUserRole();
-      isLoading.value = false;
-    }, onError: (error) {
-      isLoading.value = false;
-      Get.snackbar("Error", "Could not load members.");
-    });
+    // Listen to the live stream of members from the repository
+    _membersSubscription = _groupRepository.getMembersStream(group.value.id).listen(
+          (memberList) {
+        members.value = memberList;
+        _updateCurrentUserRole();
+        isLoading.value = false;
+      },
+      onError: (error) {
+        isLoading.value = false;
+        Get.snackbar("Error", "Could not load members in real-time.");
+      },
+    );
   }
 
   /// Determines and updates the role of the currently logged-in user.
@@ -51,8 +47,7 @@ class MembersController extends GetxController {
 
     final currentUserMember = members.firstWhere(
           (m) => m.id == currentUserId,
-      orElse: () =>
-          MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
+      orElse: () => MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
     );
     currentUserRole.value = currentUserMember.role;
   }
@@ -71,6 +66,8 @@ class MembersController extends GetxController {
       group.update((val) {
         val?.name = newName;
       });
+      // Also update the dashboard's group list to reflect the new name
+      Get.find<DashboardController>().fetchUserGroups();
       Get.snackbar('Success', 'Group name updated successfully!');
     } catch (e) {
       Get.snackbar('Error', 'Failed to update group name.');
@@ -78,16 +75,23 @@ class MembersController extends GetxController {
   }
 
   /// Adds a member to the group by email or as a placeholder.
-  Future<void> addMember() async {
+  Future<void> addMember({required bool byEmail}) async {
     final String input = addMemberInputController.text.trim();
     if (input.isEmpty) {
-      Get.snackbar('Error', 'Name or email cannot be empty.');
+      Get.snackbar('Input Required', 'Please enter a name or email.');
       return;
     }
+
+    // If adding by email, validate the format first
+    if (byEmail && !GetUtils.isEmail(input)) {
+      Get.snackbar('Invalid Input', 'Please enter a valid email address.');
+      return;
+    }
+
     isAddingMember.value = true;
     try {
       String result;
-      if (GetUtils.isEmail(input)) {
+      if (byEmail) {
         result = await _groupRepository.addMemberByEmail(
             groupId: group.value.id, email: input);
       } else {
@@ -96,51 +100,56 @@ class MembersController extends GetxController {
       }
       Get.back(); // Close the add member dialog
 
-      // --- THIS IS THE FIX ---
-      // After successfully adding a member to the database, we find the
-      // DashboardController that is running in the background and tell it
-      // to re-fetch its list of groups. This ensures the UI always has
-      // the most up-to-date data.
+      // The stream will update the UI, but this ensures other parts of the app are aware
       Get.find<DashboardController>().fetchUserGroups();
 
       Get.snackbar('Success', result,
           backgroundColor: Colors.green, colorText: Colors.white);
     } catch (e) {
-      Get.snackbar('Error Adding Member', e.toString());
+      Get.snackbar('Error Adding Member', e.toString(),
+          backgroundColor: Colors.red, colorText: Colors.white);
     } finally {
       isAddingMember.value = false;
       addMemberInputController.clear();
     }
   }
 
-  /// Removes a member from the current group.
-  Future<void> removeMember(String memberId) async {
+  /// Shows a confirmation dialog and then removes a member from the group.
+  Future<void> removeMember(String memberId, String memberName) async {
+    // Prevent the user from removing themselves
+    if (memberId == FirebaseAuth.instance.currentUser?.uid) {
+      Get.snackbar('Action Not Allowed', 'You cannot remove yourself from the group.');
+      return;
+    }
+
     Get.defaultDialog(
       title: "Remove Member",
-      middleText: "Are you sure you want to remove this member?",
+      middleText: "Are you sure you want to remove '$memberName' from this group? This action cannot be undone.",
       textConfirm: "Remove",
       textCancel: "Cancel",
       confirmTextColor: Colors.white,
+      buttonColor: Colors.red,
       onConfirm: () async {
-        Get.back();
+        Get.back(); // Close the confirmation dialog
         try {
           await _groupRepository.removeMemberFromGroup(
               groupId: group.value.id, memberId: memberId);
-          // --- GOOD PRACTICE: REFRESH ON REMOVE TOO ---
+
           Get.find<DashboardController>().fetchUserGroups();
-          Get.snackbar('Success', 'Member has been removed.',
+
+          Get.snackbar('Success', "'$memberName' has been removed.",
               backgroundColor: Colors.green, colorText: Colors.white);
         } catch (e) {
-          Get.snackbar('Error', 'Failed to remove member: ${e.toString()}');
+          Get.snackbar('Error', 'Failed to remove member: ${e.toString()}',
+              backgroundColor: Colors.red, colorText: Colors.white);
         }
       },
     );
   }
 
-  /// ✅ NEW FUNCTION: Updates a member's role in Firestore.
+  /// Updates a member's role in Firestore.
   Future<void> updateMemberRole(String memberId, String newRole) async {
     try {
-      // This method needs to be added to the repository
       await _groupRepository.updateMemberRole(
         groupId: group.value.id,
         memberId: memberId,

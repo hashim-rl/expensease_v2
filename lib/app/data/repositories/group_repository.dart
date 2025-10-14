@@ -53,9 +53,6 @@ class GroupRepository {
     });
   }
 
-  // --- THIS IS THE HARDENED `getMembersDetails` FUNCTION ---
-  // It now includes comprehensive logging and handles the case where a user
-  // document might be missing from the database without crashing.
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
     debugPrint("--- REPO TRACE: Inside getMembersDetails ---");
     debugPrint("--- REPO TRACE: Attempting to fetch details for these IDs: $memberIds");
@@ -77,9 +74,7 @@ class GroupRepository {
           memberDetails.add(UserModel.fromFirestore(docSnapshot));
           debugPrint("--- REPO TRACE: Added user: ${memberDetails.last.nickname} (ID: $memberId)");
         } else {
-          // CRITICAL: A user ID exists in the group, but their user document is missing.
           debugPrint("--- REPO TRACE: WARNING! No user document found for ID: $memberId. This indicates data inconsistency.");
-          // Add a placeholder user so the UI can still render something and the list isn't shorter than expected.
           memberDetails.add(UserModel(uid: memberId, email: 'missing@example.com', fullName: 'Missing User Data', nickname: 'Missing User'));
         }
       }
@@ -89,11 +84,9 @@ class GroupRepository {
       return memberDetails;
     } catch (e) {
       debugPrint("!!!! FATAL ERROR in getMembersDetails: $e");
-      // On catastrophic failure, return empty list, but the log will show the error.
       return [];
     }
   }
-  // --- END OF HARDENED FUNCTION ---
 
   Future<void> createGroup(String groupName, String groupType) async {
     final user = _auth.currentUser;
@@ -110,7 +103,6 @@ class GroupRepository {
     String userName;
 
     if (!userDocSnapshot.exists) {
-      // This path is for when a user creates their first group but their user doc isn't fully set up yet.
       debugPrint("--- REPO TRACE: User doc not found during group creation. Self-healing user profile.");
       final fullName = user.displayName ?? user.email ?? 'New User';
       final selfHealedUser = UserModel(
@@ -131,7 +123,7 @@ class GroupRepository {
       id: newGroupRef.id,
       name: groupName,
       type: groupType,
-      memberIds: [user.uid], // Ensure creator is always a member
+      memberIds: [user.uid],
       createdAt: Timestamp.now(),
     );
 
@@ -146,17 +138,15 @@ class GroupRepository {
     batch.set(newGroupRef, newGroup.toFirestore());
     batch.set(newMemberRef, creatorAsMember.toFirestore());
 
-    // Update user's group list, ensuring it exists
     if (userDocSnapshot.exists) {
       batch.update(userDocRef, {'groups.${newGroupRef.id}': true});
-    } else {
-      // If user doc was just created, it already has the group. No update needed.
     }
 
     await batch.commit();
     debugPrint("--- REPO TRACE: Group '${groupName}' created successfully with ID: ${newGroupRef.id}");
   }
 
+  /// --- THIS IS THE DEFINITIVE FIX FOR THE PERMISSION ERROR ---
   Future<String> addMemberByEmail({
     required String groupId,
     required String email,
@@ -184,14 +174,17 @@ class GroupRepository {
     final batch = _firebaseProvider.firestore.batch();
     final newMemberRef = _firebaseProvider.membersCollection(groupId).doc(userId);
     final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
-    final userRef = _firebaseProvider.firestore.collection('users').doc(userId);
 
+    // Add the new member to the group's "members" subcollection.
     batch.set(newMemberRef, newMember.toFirestore());
+    // Add the new member's ID to the group's "memberIds" list.
     batch.update(groupRef, {
       'memberIds': FieldValue.arrayUnion([userId])
     });
 
-    batch.update(userRef, {'groups.$groupId': true});
+    // THIS LINE WAS REMOVED. It was trying to write to another user's document,
+    // which violates security rules and causes the "permission-denied" error.
+    // batch.update(userRef, {'groups.$groupId': true});
 
     await batch.commit();
     debugPrint("--- REPO TRACE: '$userName' (ID: $userId) successfully added to group '$groupId' by email.");
@@ -235,7 +228,6 @@ class GroupRepository {
       });
       batch.delete(memberRef);
 
-      // Check if userRef exists before attempting to update to avoid errors for placeholder users
       final userSnapshot = await userRef.get();
       if (userSnapshot.exists) {
         batch.update(userRef, {'groups.$groupId': FieldValue.delete()});

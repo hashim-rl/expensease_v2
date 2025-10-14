@@ -20,7 +20,7 @@ class MembersPermissionsView extends GetView<MembersController> {
             padding: const EdgeInsets.only(right: 16.0),
             child: Obx(() => Chip(
               label: Text(
-                controller.currentUserRole.value,
+                "You are: ${controller.currentUserRole.value}",
                 style: const TextStyle(
                     color: Colors.blueAccent, fontWeight: FontWeight.bold),
               ),
@@ -34,8 +34,6 @@ class MembersPermissionsView extends GetView<MembersController> {
         child: Column(
           children: [
             _buildEditNameCard(),
-            const SizedBox(height: 24),
-            _buildManageCategoriesCard(),
             const SizedBox(height: 24),
             _buildMemberPermissionsCard(),
             const SizedBox(height: 24),
@@ -83,62 +81,6 @@ class MembersPermissionsView extends GetView<MembersController> {
     );
   }
 
-  Widget _buildManageCategoriesCard() {
-    return Card(
-      elevation: 2.0,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text("Manage Bill Categories",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 16),
-            _categoryRow(Icons.receipt_long_outlined, "Rent"),
-            _categoryRow(Icons.local_gas_station_outlined, "Gas"),
-            const Divider(height: 32),
-            Row(
-              children: [
-                const Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                        hintText: "Add New Category", border: InputBorder.none),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: () {},
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black87,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text("Add"),
-                ),
-              ],
-            )
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _categoryRow(IconData icon, String name) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.grey.shade700),
-          const SizedBox(width: 16),
-          Expanded(child: Text(name, style: const TextStyle(fontSize: 16))),
-          IconButton(
-              icon: Icon(Icons.delete_outline, color: Colors.red.shade300),
-              onPressed: () {}),
-        ],
-      ),
-    );
-  }
-
   Widget _buildMemberPermissionsCard() {
     return Card(
       elevation: 2.0,
@@ -148,12 +90,15 @@ class MembersPermissionsView extends GetView<MembersController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text("Member Permissions",
+            const Text("Members & Permissions",
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Obx(() {
               if (controller.isLoading.value) {
                 return const Center(child: CircularProgressIndicator());
+              }
+              if (controller.members.isEmpty) {
+                return const Center(child: Text("No members found."));
               }
               return ListView.builder(
                 shrinkWrap: true,
@@ -166,14 +111,17 @@ class MembersPermissionsView extends GetView<MembersController> {
               );
             }),
             const SizedBox(height: 12),
-            OutlinedButton.icon(
+            // Only Admins should see the "Add New Member" button
+            Obx(() => controller.currentUserRole.value == 'Admin'
+                ? OutlinedButton.icon(
               icon: const Icon(Icons.person_add_alt_1_outlined),
               label: const Text("Add New Member"),
               onPressed: _showAddMemberDialog,
               style: OutlinedButton.styleFrom(
                 minimumSize: const Size(double.infinity, 48),
               ),
-            ),
+            )
+                : const SizedBox.shrink()),
           ],
         ),
       ),
@@ -181,31 +129,45 @@ class MembersPermissionsView extends GetView<MembersController> {
   }
 
   Widget _memberRow(MemberModel member) {
-    final bool isCurrentUser =
-        member.id == FirebaseAuth.instance.currentUser?.uid;
+    final bool isCurrentUser = member.id == FirebaseAuth.instance.currentUser?.uid;
+
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
-        child: Text(member.name.substring(0, 1).toUpperCase()),
+        child: Text(member.name.isNotEmpty ? member.name.substring(0, 1).toUpperCase() : '?'),
       ),
       title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-      subtitle: Text(isCurrentUser ? "You" : member.role),
-      trailing: Obx(() => DropdownButton<String>(
-        value: member.role,
-        underline: const SizedBox(),
-        onChanged: (controller.currentUserRole.value == 'Admin' && !isCurrentUser)
-            ? (value) {
-          if (value != null) {
-            controller.updateMemberRole(member.id, value);
-          }
+      subtitle: Text(isCurrentUser ? "You (${member.role})" : member.role),
+      trailing: Obx(() {
+        // Only Admins can change roles or remove other members
+        if (controller.currentUserRole.value != 'Admin' || isCurrentUser) {
+          return const SizedBox(width: 48); // Placeholder for alignment
         }
-            : null,
-        items: const [
-          DropdownMenuItem(value: "Admin", child: Text("Admin")),
-          DropdownMenuItem(value: "Editor", child: Text("Editor")),
-          DropdownMenuItem(value: "Viewer", child: Text("Viewer")),
-        ],
-      )),
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DropdownButton<String>(
+              value: member.role,
+              underline: const SizedBox(),
+              onChanged: (value) {
+                if (value != null) {
+                  controller.updateMemberRole(member.id, value);
+                }
+              },
+              items: const [
+                DropdownMenuItem(value: "Admin", child: Text("Admin")),
+                DropdownMenuItem(value: "Editor", child: Text("Editor")),
+                DropdownMenuItem(value: "Viewer", child: Text("Viewer")),
+              ],
+            ),
+            IconButton(
+              icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade400),
+              tooltip: "Remove ${member.name}",
+              onPressed: () => controller.removeMember(member.id, member.name),
+            ),
+          ],
+        );
+      }),
     );
   }
 
@@ -224,11 +186,12 @@ class MembersPermissionsView extends GetView<MembersController> {
           style: TextStyle(
               color: Colors.red.shade900, fontWeight: FontWeight.bold),
         ),
-        onTap: () {},
+        onTap: () {}, // Future functionality
       ),
     );
   }
 
+  /// --- THIS IS THE REDESIGNED DIALOG WITH CLEAR OPTIONS ---
   void _showAddMemberDialog() {
     controller.addMemberInputController.clear();
     Get.dialog(
@@ -237,25 +200,35 @@ class MembersPermissionsView extends GetView<MembersController> {
         content: TextField(
           controller: controller.addMemberInputController,
           decoration: const InputDecoration(
-            labelText: 'Member Name or Email',
-            hintText: 'e.g., "John Doe" or "john@example.com"',
+            labelText: 'Enter Name or Email',
+            hintText: 'e.g., "John" or "john@example.com"',
           ),
+          autofocus: true,
         ),
         actions: [
           TextButton(onPressed: () => Get.back(), child: const Text('Cancel')),
+          // Button to add a placeholder user (by name)
+          Obx(() => TextButton(
+            onPressed: controller.isAddingMember.value
+                ? null
+                : () => controller.addMember(byEmail: false), // Pass false for name
+            child: const Text('Add by Name Only'),
+          )),
+          // Button to add a user who is on ExpensEase (by email)
           Obx(() => ElevatedButton(
             onPressed: controller.isAddingMember.value
                 ? null
-                : controller.addMember,
+                : () => controller.addMember(byEmail: true), // Pass true for email
             child: controller.isAddingMember.value
                 ? const SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2))
-                : const Text('Add'),
+                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : const Text('Add by Email'),
           )),
         ],
       ),
+      barrierDismissible: false, // Prevent closing by tapping outside
     );
   }
 }
