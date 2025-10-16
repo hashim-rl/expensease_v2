@@ -146,6 +146,20 @@ class GroupRepository {
     debugPrint("--- REPO TRACE: Group '${groupName}' created successfully with ID: ${newGroupRef.id}");
   }
 
+  // --- NEW METHOD FOR PHASE 3, STEP 5.1 ---
+  /// Updates specific settings fields on a group document.
+  Future<void> updateGroupSettings(String groupId, Map<String, dynamic> settings) async {
+    try {
+      debugPrint("--- REPO TRACE: Updating settings for group ID: $groupId with fields: ${settings.keys}");
+      await _firebaseProvider.groupsCollection.doc(groupId).update(settings);
+      debugPrint("--- REPO TRACE: Group settings updated successfully.");
+    } catch (e) {
+      debugPrint("!!!! ERROR updating group settings for '$groupId': $e");
+      throw Exception('Failed to update group settings.');
+    }
+  }
+  // ----------------------------------------
+
   /// --- THIS IS THE DEFINITIVE FIX FOR THE PERMISSION ERROR ---
   Future<String> addMemberByEmail({
     required String groupId,
@@ -215,6 +229,7 @@ class GroupRepository {
   Future<void> removeMemberFromGroup({
     required String groupId,
     required String memberId,
+    bool isGuest = false,
   }) async {
     try {
       debugPrint("--- REPO TRACE: Removing member '$memberId' from group '$groupId'");
@@ -228,11 +243,14 @@ class GroupRepository {
       });
       batch.delete(memberRef);
 
-      final userSnapshot = await userRef.get();
-      if (userSnapshot.exists) {
-        batch.update(userRef, {'groups.$groupId': FieldValue.delete()});
-      } else {
-        debugPrint("--- REPO TRACE: User document for member '$memberId' not found, skipping groups update.");
+      // Only attempt to update the user document if not in Guest Mode
+      if (!isGuest) {
+        final userSnapshot = await userRef.get();
+        if (userSnapshot.exists) {
+          batch.update(userRef, {'groups.$groupId': FieldValue.delete()});
+        } else {
+          debugPrint("--- REPO TRACE: User document for member '$memberId' not found, skipping groups update.");
+        }
       }
 
       await batch.commit();

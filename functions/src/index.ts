@@ -39,10 +39,14 @@ export const createRecurringExpenses = functions.pubsub
       batch.set(newExpenseRef, {
         description: recurringData.description,
         totalAmount: recurringData.totalAmount,
-        paidBy: recurringData.paidBy,
-        split: recurringData.split,
+        // --- CRITICAL FIXES APPLIED HERE ---
+        paidById: recurringData.paidBy, // Mapped to the correct field name
+        splitBetween: recurringData.split, // Mapped to the correct field name
+        // --- ADDED ESSENTIAL FIELDS ---
         date: admin.firestore.Timestamp.now(),
-        // add more expense fields if needed
+        category: "Bill", // Added for accurate reporting (e.g., ReportsController)
+        createdAt: admin.firestore.Timestamp.now(),
+        // ----------------------------------
       });
 
       // 2. Calculate the next due date

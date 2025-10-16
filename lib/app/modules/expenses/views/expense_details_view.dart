@@ -10,7 +10,9 @@ class ExpenseDetailsView extends GetView<ExpenseDetailsController> {
 
   @override
   Widget build(BuildContext context) {
-    final UserService userService = UserService();
+    // Moved UserService initialization outside of build for cleaner structure
+    // But since it's a GetView, we can just use Get.find<UserService>() if it's bound
+    final UserService userService = Get.find<UserService>();
 
     return Scaffold(
       appBar: AppBar(
@@ -30,7 +32,7 @@ class ExpenseDetailsView extends GetView<ExpenseDetailsController> {
                 const SizedBox(height: 24),
                 Text('Comments', style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
-                _buildCommentsList(),
+                _buildCommentsList(userService), // PASS USER SERVICE HERE
               ],
             ),
           ),
@@ -100,7 +102,8 @@ class ExpenseDetailsView extends GetView<ExpenseDetailsController> {
     );
   }
 
-  Widget _buildCommentsList() {
+  // --- UPDATED METHOD SIGNATURE AND IMPLEMENTATION ---
+  Widget _buildCommentsList(UserService userService) {
     return Obx(() {
       if (controller.comments.isEmpty) {
         return const Text("No comments yet.", textAlign: TextAlign.center, style: TextStyle(color: Colors.grey));
@@ -108,19 +111,33 @@ class ExpenseDetailsView extends GetView<ExpenseDetailsController> {
       return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: ListView.builder(
+          reverse: true, // Display newest comment at the bottom
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: controller.comments.length,
           itemBuilder: (context, index) {
-            return ListTile(
-              title: Text(controller.comments[index]),
-              subtitle: const Text("Comment by User..."), // TODO: Add user name
+            final comment = controller.comments[index];
+            return FutureBuilder<String>(
+              // NEW: Use the authorUid from the CommentModel to fetch the name
+              future: userService.getUserName(comment.authorUid),
+              builder: (context, snapshot) {
+                final authorName = snapshot.data ?? 'A user';
+                return ListTile(
+                  title: Text(comment.text),
+                  // NEW: Display the author's name and the comment timestamp
+                  subtitle: Text(
+                    '${authorName} • ${DateFormat('MMM d, h:mm a').format(comment.timestamp)}',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                );
+              },
             );
           },
         ),
       );
     });
   }
+  // ----------------------------------------------------
 
   Widget _buildCommentInputField() {
     return Padding(

@@ -1,49 +1,59 @@
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/data/models/notification_model.dart';
+// --- NEW IMPORT ---
+import 'package:expensease/app/data/repositories/notification_repository.dart';
+// ------------------
 
 class NotificationsController extends GetxController {
+  // --- INJECTED DEPENDENCY ---
+  final NotificationRepository _repository = Get.find<NotificationRepository>();
+  // ---------------------------
+
   final isLoading = true.obs;
+  // CHANGED: List type should match the repository's model, not the mock data
   final notifications = <NotificationModel>[].obs;
 
   @override
   void onInit() {
     super.onInit();
-    fetchNotifications();
+    // Bind notifications to a live stream from the repository
+    _bindNotificationsStream();
   }
 
-  void fetchNotifications() {
+  // UPDATED: Use stream binding instead of one-time fetch with mock data
+  void _bindNotificationsStream() {
     isLoading.value = true;
-    // TODO: Replace this with a real call to fetch notifications from Firestore
-    // For now, we use mock data that matches the design
-    Future.delayed(const Duration(seconds: 1), () {
-      notifications.value = [
-        NotificationModel(
-          icon: Icons.receipt_long,
-          iconColor: Colors.orange.shade100,
-          title: "John Doe added a new bill 'Groceries'",
-          timestamp: "2 hours ago",
-        ),
-        NotificationModel(
-          icon: Icons.payment,
-          iconColor: Colors.purple.shade100,
-          title: "John Doe added a payment",
-          timestamp: "2 hours ago",
-        ),
-        NotificationModel(
-          icon: Icons.credit_card,
-          iconColor: Colors.blue.shade100,
-          title: "You received a payment of \$20 from Jane Smith",
-          timestamp: "2 hours ago",
-        ),
-        NotificationModel(
-          icon: Icons.wallet_giftcard,
-          iconColor: Colors.yellow.shade100,
-          title: "ExpensEase: Your monthly report is ready.",
-          timestamp: "2 hours ago",
-        ),
-      ];
+    try {
+      // Stream only unread notifications
+      notifications.bindStream(_repository.getNotificationsStream());
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load notifications: ${e.toString()}');
+    } finally {
       isLoading.value = false;
-    });
+    }
+  }
+
+  // NOTE: fetchNotifications is no longer needed.
+
+  // --- NEW METHOD: Mark a single notification as read/dismissed ---
+  Future<void> markNotificationAsRead(String notificationId) async {
+    try {
+      await _repository.markNotificationAsRead(notificationId);
+      // The notification will automatically disappear from the list via the stream filter
+      Get.snackbar('Dismissed', 'Notification dismissed.');
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to dismiss notification.');
+    }
+  }
+
+  // --- NEW METHOD: Clear all notifications ---
+  Future<void> clearAllNotifications() async {
+    try {
+      await _repository.clearAllNotifications();
+      // The entire list will clear automatically via the stream filter
+      Get.snackbar('Success', 'All notifications cleared.');
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to clear all notifications.');
+    }
   }
 }

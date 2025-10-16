@@ -46,9 +46,9 @@ class GuestModeView extends GetView<AuthController> {
                     ),
                     const SizedBox(height: 24),
                     ElevatedButton(
-                      onPressed: () {
-                        // TODO: Implement local group creation
-                      },
+                      // --- UPDATED LOGIC ---
+                      onPressed: controller.createLocalGuestGroup,
+                      // ---------------------
                       child: const Text('Create a Local Group'),
                     )
                   ],

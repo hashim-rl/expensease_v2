@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/modules/expenses/controllers/expense_controller.dart';
 import 'package:expensease/app/data/models/user_model.dart';
+import 'package:intl/intl.dart'; // Import for date formatting
 
 class AddExpenseView extends GetView<ExpenseController> {
   const AddExpenseView({super.key});
@@ -13,6 +14,7 @@ class AddExpenseView extends GetView<ExpenseController> {
         title: const Text('Add Expense'),
         centerTitle: true,
         actions: [
+          // Use the main addExpense method, which now handles recurring submission
           IconButton(
             onPressed: controller.addExpense,
             icon: const Icon(Icons.check),
@@ -20,16 +22,12 @@ class AddExpenseView extends GetView<ExpenseController> {
         ],
       ),
       body: Obx(() {
-        // --- THIS IS THE INTELLIGENT UI FIX ---
-        // 1. Explicitly show loading state
+        // --- UI FIXES for Loading/Empty State ---
         if (controller.isLoading.value) {
-          debugPrint("--- UI TRACE: AddExpenseView is loading...");
           return const Center(child: CircularProgressIndicator());
         }
 
-        // 2. Handle truly empty member list with a clear message
         if (controller.members.isEmpty) {
-          debugPrint("--- UI TRACE: AddExpenseView found no members.");
           return const Center(
             child: Padding(
               padding: EdgeInsets.all(20.0),
@@ -48,13 +46,12 @@ class AddExpenseView extends GetView<ExpenseController> {
             ),
           );
         }
-        // --- END OF UI FIX ---
+        // --- END OF UI FIXES ---
 
-        // If we have members, build the expense form.
-        debugPrint("--- UI TRACE: AddExpenseView rendering with ${controller.members.length} members.");
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
+            key: controller.formKey, // Assuming a FormKey exists in the controller
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -64,6 +61,10 @@ class AddExpenseView extends GetView<ExpenseController> {
                     labelText: 'Description',
                     border: OutlineInputBorder(),
                   ),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) return 'Description is required';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16.0),
                 TextFormField(
@@ -73,6 +74,10 @@ class AddExpenseView extends GetView<ExpenseController> {
                     border: OutlineInputBorder(),
                   ),
                   keyboardType: TextInputType.number,
+                  validator: (value) {
+                    if (value == null || double.tryParse(value) == null) return 'Valid amount is required';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16.0),
                 TextFormField(
@@ -86,30 +91,23 @@ class AddExpenseView extends GetView<ExpenseController> {
                   onTap: controller.selectDate,
                 ),
                 const SizedBox(height: 16.0),
-                // CRITICAL: The `Obx` widget ensures this dropdown rebuilds when `controller.members` changes.
                 Obx(() => DropdownButtonFormField<String>(
                   value: controller.selectedPayerUid.value,
                   decoration: const InputDecoration(
                     labelText: 'Paid by',
                     border: OutlineInputBorder(),
                   ),
-                  // Ensure the items list is built from the observed `controller.members`
                   items: controller.members.map((UserModel member) {
                     return DropdownMenuItem<String>(
                       value: member.uid,
-                      // Use the robust `nickname` from UserModel
                       child: Text(member.nickname),
                     );
                   }).toList(),
                   onChanged: (String? newValue) {
                     controller.selectedPayerUid.value = newValue;
-                    debugPrint("--- UI TRACE: Payer selected: ${controller.members.firstWhereOrNull((m) => m.uid == newValue)?.nickname}");
                   },
-                  // Add a validator to ensure a payer is selected
                   validator: (value) {
-                    if (value == null) {
-                      return 'Please select who paid';
-                    }
+                    if (value == null) return 'Please select who paid';
                     return null;
                   },
                 )),
@@ -122,7 +120,6 @@ class AddExpenseView extends GetView<ExpenseController> {
                   ),
                 ),
                 const SizedBox(height: 8.0),
-                // Ensure this ListView also observes changes to members
                 Obx(() => ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
@@ -135,7 +132,7 @@ class AddExpenseView extends GetView<ExpenseController> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            member.nickname, // Use the robust `nickname`
+                            member.nickname,
                             style: const TextStyle(fontSize: 16),
                           ),
                           Row(
@@ -203,13 +200,76 @@ class AddExpenseView extends GetView<ExpenseController> {
                       },
                     ),
                   ),
-                SwitchListTile(
+
+                // --- NEW: RECURRING EXPENSE FIELDS ---
+                const SizedBox(height: 16.0),
+                Obx(() => SwitchListTile(
                   title: const Text('Recurring Expense'),
                   value: controller.isRecurring.value,
                   onChanged: (bool value) {
                     controller.isRecurring.value = value;
                   },
-                ),
+                )),
+
+                Obx(() => Visibility(
+                  visible: controller.isRecurring.value,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 16.0),
+                      DropdownButtonFormField<String>(
+                        value: controller.selectedFrequency.value,
+                        decoration: const InputDecoration(
+                          labelText: 'Frequency',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: ['Monthly', 'Weekly', 'Quarterly', 'Yearly']
+                            .map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          controller.selectedFrequency.value = newValue ?? 'Monthly';
+                        },
+                        validator: (value) {
+                          if (controller.isRecurring.value && value == null) return 'Frequency is required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      TextFormField(
+                        // Assumes a controller exists for this, or we display the selected date
+                        decoration: InputDecoration(
+                          labelText: 'Next Due Date',
+                          hintText: controller.selectedNextDueDate.value != null
+                              ? DateFormat.yMMMd().format(controller.selectedNextDueDate.value!)
+                              : 'Select date',
+                          border: const OutlineInputBorder(),
+                          suffixIcon: const Icon(Icons.calendar_today),
+                        ),
+                        readOnly: true,
+                        onTap: controller.selectNextDueDate, // Assumes this method exists
+                        validator: (value) {
+                          if (controller.isRecurring.value && controller.selectedNextDueDate.value == null) return 'Next due date is required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16.0),
+                      TextFormField(
+                        controller: controller.whatsappNumberController, // Assumes this controller exists
+                        decoration: const InputDecoration(
+                          labelText: 'WhatsApp Reminder Number (Optional)',
+                          hintText: '+923... (Premium Feature)',
+                          border: OutlineInputBorder(),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                    ],
+                  ),
+                )),
+                // --- END OF NEW FIELDS ---
+
                 const SizedBox(height: 24.0),
                 Center(
                   child: ElevatedButton(

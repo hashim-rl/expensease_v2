@@ -3,6 +3,9 @@ import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/repositories/user_repository.dart';
+// --- NEW IMPORT ---
+import 'package:flutter/foundation.dart';
+// ------------------
 
 class SpecializedModesController extends GetxController {
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
@@ -24,6 +27,7 @@ class SpecializedModesController extends GetxController {
   final currentSavings = 300.0.obs; // Placeholder data
 
   final isLoading = true.obs;
+  final isSaving = false.obs; // New state for saving button
 
   @override
   void onInit() {
@@ -40,6 +44,9 @@ class SpecializedModesController extends GetxController {
 
   Future<void> _fetchPartnerDetails() async {
     isLoading.value = true;
+    // Check if the group is already configured with ratios
+    // TODO: Load existing ratios/goals from group.settings field if available
+
     if (group.memberIds.length != 2) {
       Get.snackbar('Configuration Error', 'Couples Mode requires exactly two members.');
       isLoading.value = false;
@@ -74,25 +81,44 @@ class SpecializedModesController extends GetxController {
       partnerARatio.value = partnerAIncome.value / totalIncome;
       partnerBRatio.value = partnerBIncome.value / totalIncome;
     }
+    debugPrint('New Ratio: A: ${partnerARatio.value.toStringAsFixed(2)}, B: ${partnerBRatio.value.toStringAsFixed(2)}');
   }
 
   void updateMonthlySavingsGoal(double value) {
     monthlySavingsGoal.value = value;
   }
 
-  void saveCoupleModeSettings() {
-    // TODO: Implement logic to save the income ratio and savings goal to the group document in Firestore.
-    // For example:
-    // final settings = {
-    //   'incomeRatio': {
-    //     partnerA.value!.uid: partnerARatio.value,
-    //     partnerB.value!.uid: partnerBRatio.value,
-    //   },
-    //   'savingsGoal': monthlySavingsGoal.value,
-    // };
-    // await _groupRepository.updateGroupSettings(group.id, settings);
+  Future<void> saveCoupleModeSettings() async {
+    if (partnerA.value == null || partnerB.value == null) {
+      Get.snackbar('Error', 'Partner details are missing. Cannot save.');
+      return;
+    }
 
-    Get.back();
-    Get.snackbar('Settings Saved', 'Couples Mode has been configured.');
+    isSaving.value = true;
+    try {
+      // --- IMPLEMENTATION OF TODO ---
+      final settings = <String, dynamic>{
+        // Store the ratios under the group document
+        'modeSettings.incomeRatio': {
+          partnerA.value!.uid: partnerARatio.value,
+          partnerB.value!.uid: partnerBRatio.value,
+        },
+        // Store the savings goal
+        'modeSettings.monthlySavingsGoal': monthlySavingsGoal.value,
+        // Mark the group as using the proportional split mode
+        'modeSettings.splitType': 'proportional',
+      };
+
+      await _groupRepository.updateGroupSettings(group.id, settings);
+
+      Get.back(); // Navigate back to the Group Settings screen
+      Get.snackbar('Settings Saved', 'Couples Mode proportional split configured!');
+      // -----------------------------
+
+    } catch (e) {
+      Get.snackbar('Save Failed', 'Could not save settings: ${e.toString()}');
+    } finally {
+      isSaving.value = false;
+    }
   }
 }

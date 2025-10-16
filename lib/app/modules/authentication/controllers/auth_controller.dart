@@ -2,9 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/data/repositories/auth_repository.dart';
 import 'package:expensease/app/routes/app_routes.dart';
+// --- NEW IMPORTS ---
+import 'package:expensease/app/modules/groups/controllers/group_controller.dart';
+import 'package:expensease/app/data/models/group_model.dart';
+import 'package:expensease/app/data/models/user_model.dart';
+// ---------------------
 
 class AuthController extends GetxController {
   final AuthRepository _repository = Get.find<AuthRepository>();
+  // --- NEW INJECTION ---
+  final GroupController _groupController = Get.find<GroupController>();
+  // ---------------------
 
   final isLoading = false.obs;
   final GlobalKey<FormState> signUpFormKey = GlobalKey<FormState>();
@@ -79,6 +87,8 @@ class AuthController extends GetxController {
 
   Future<void> signOut() async {
     await _repository.signOut();
+    // Clear any local group data if we sign out
+    _groupController.clearActiveGroup();
     Get.offAllNamed(Routes.AUTH_HUB);
   }
 
@@ -93,6 +103,56 @@ class AuthController extends GetxController {
       isLoading.value = false;
     }
   }
+
+  // --- NEW METHOD FOR GUEST MODE GROUP CREATION ---
+  Future<void> createLocalGuestGroup() async {
+    isLoading.value = true;
+    try {
+      // 1. Create a dummy UserModel for the Guest
+      final guestUser = UserModel(
+        uid: 'guest_user_id', // Unique placeholder UID for local mode
+        fullName: 'Guest User',
+        email: 'guest@expensease.local',
+        nickname: 'You',
+        photoUrl: '',
+        currencyCode: 'USD',
+        isGuest: true, // Flag to distinguish guest data
+      );
+
+      // 2. Create a basic GroupModel
+      final guestGroup = GroupModel(
+        id: 'local_group_id', // Unique placeholder Group ID
+        name: 'My Local Group',
+        description: 'Temporary group for trying ExpensEase.',
+        ownerUid: guestUser.uid,
+        memberUids: [guestUser.uid],
+        mode: 'standard',
+        createdAt: DateTime.now(),
+        // This flag ensures the GroupController knows not to use Firebase
+        isLocal: true,
+      );
+
+      // 3. Set the active group and user in the GroupController
+      // Note: We need to also set the active user context in the UserService/AuthService
+      // if it wasn't already handled by the anonymous sign-in in _repository.
+      // For now, rely on GroupController to hold the local group state.
+      _groupController.setActiveGroup(guestGroup);
+      _groupController.setLocalUser(guestUser); // Assuming a new method for local user
+
+      // 4. Navigate to the Group Dashboard
+      Get.offAllNamed(Routes.DASHBOARD);
+      Get.snackbar('Success', 'Local group created! Start adding expenses.',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to create local group: $e');
+    } finally {
+      isLoading.value = false;
+    }
+  }
+  // ------------------------------------------------
 
   Future<void> sendPasswordResetEmail() async {
     final isValid = passwordResetFormKey.currentState?.validate() ?? false;
