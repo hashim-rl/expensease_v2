@@ -8,6 +8,7 @@ class GroupModel {
   final List<String> memberIds;
   final Map<String, double>? incomeSplitRatio;
   final Timestamp createdAt;
+  final bool isLocal;
 
   GroupModel({
     required this.id,
@@ -17,22 +18,17 @@ class GroupModel {
     required this.memberIds,
     this.incomeSplitRatio,
     required this.createdAt,
+    this.isLocal = false,
   });
 
   /// Creates a GroupModel from a Firestore document snapshot.
   factory GroupModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
 
-    // --- THIS IS THE FIX ---
-    // The original code was not safely casting the list from Firestore.
-    // This new code safely checks if 'memberIds' exists and is a list,
-    // then correctly converts each item to a String.
-    // This is the root cause of the "no members found" bug.
     final memberIdsData = data['memberIds'];
     final List<String> memberIdsList = memberIdsData is List
         ? List<String>.from(memberIdsData.map((item) => item.toString()))
         : [];
-    // --- FIX ENDS HERE ---
 
     return GroupModel(
       id: doc.id,
@@ -44,6 +40,7 @@ class GroupModel {
           ? Map<String, double>.from(data['incomeSplitRatio'])
           : null,
       createdAt: data['createdAt'] ?? Timestamp.now(),
+      isLocal: false,
     );
   }
 

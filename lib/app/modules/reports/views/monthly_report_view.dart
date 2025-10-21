@@ -35,7 +35,7 @@ class MonthlyReportView extends GetView<ReportsController> {
         }
 
         final totalSpending = controller.spendingByCategory.values.fold(0.0, (sum, amount) => sum + amount);
-        final settlementPlan = DebtSimplifier.simplify(controller.memberBalances.value);
+        final settlementPlan = DebtSimplifier.simplify(controller.memberBalances);
 
         return ListView(
           padding: const EdgeInsets.all(16.0),

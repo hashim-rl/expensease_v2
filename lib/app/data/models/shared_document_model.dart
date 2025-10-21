@@ -16,8 +16,8 @@ class SharedDocumentModel {
   });
 
   /// This factory constructor builds a SharedDocumentModel from a Firestore document.
-  factory SharedDocumentModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  factory SharedDocumentModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return SharedDocumentModel(
       id: doc.id,
       fileName: data['fileName'] ?? '',

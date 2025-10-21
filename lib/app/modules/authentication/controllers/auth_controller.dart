@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/data/repositories/auth_repository.dart';
@@ -114,22 +115,16 @@ class AuthController extends GetxController {
         fullName: 'Guest User',
         email: 'guest@expensease.local',
         nickname: 'You',
-        photoUrl: '',
-        currencyCode: 'USD',
-        isGuest: true, // Flag to distinguish guest data
+        profilePicUrl: '',
       );
 
       // 2. Create a basic GroupModel
       final guestGroup = GroupModel(
         id: 'local_group_id', // Unique placeholder Group ID
         name: 'My Local Group',
-        description: 'Temporary group for trying ExpensEase.',
-        ownerUid: guestUser.uid,
-        memberUids: [guestUser.uid],
-        mode: 'standard',
-        createdAt: DateTime.now(),
-        // This flag ensures the GroupController knows not to use Firebase
-        isLocal: true,
+        memberIds: [guestUser.uid],
+        type: 'standard',
+        createdAt: Timestamp.now(),
       );
 
       // 3. Set the active group and user in the GroupController

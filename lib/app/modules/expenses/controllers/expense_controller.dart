@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/shared/services/currency_service.dart';
@@ -11,16 +10,13 @@ import 'package:expensease/app/modules/expenses/controllers/recurring_expense_co
 
 class ExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository;
-  final GroupRepository _groupRepository;
   final CurrencyService _currencyService = CurrencyService();
   // NEW: Inject Recurring Controller to use its creation method
   final RecurringExpenseController _recurringController = Get.find<RecurringExpenseController>();
 
   ExpenseController({
     required ExpenseRepository expenseRepository,
-    required GroupRepository groupRepository,
-  })  : _expenseRepository = expenseRepository,
-        _groupRepository = groupRepository;
+  }) : _expenseRepository = expenseRepository;
 
   // NEW: Form Key for validation
   final GlobalKey<FormState> formKey = GlobalKey<FormState>();
@@ -108,8 +104,8 @@ class ExpenseController extends GetxController {
       debugPrint(
           "ExpenseController initialized with ${members.length} members in group ${group.name}");
     } catch (e) {
-      Get.snackbar('Error', 'Failed to initialize: ${e.toString()}');
-      debugPrint("ERROR initializing ExpenseController: $e");
+      Get.snackbar('Error', 'Failed to initialize: \${e.toString()}');
+      debugPrint("ERROR initializing ExpenseController: \$e");
     } finally {
       isLoading.value = false;
     }
@@ -160,8 +156,8 @@ class ExpenseController extends GetxController {
       // --- CRITICAL FIX 1: COUPLES MODE PROPORTIONAL SPLIT ---
       if (group.type == 'Couple' && splitMethod.value == 'Proportional' && group.incomeSplitRatio != null) {
         final ratio = group.incomeSplitRatio!; // Map<UID, Ratio>
-        for (var memberUid in group.memberUids) {
-          finalSplit[memberUid] = finalAmount * (ratio[memberUid] ?? 0.5); // Default to 50/50 if ratio missing
+        for (var memberId in group.memberIds) {
+          finalSplit[memberId] = finalAmount * (ratio[memberId] ?? 0.5); // Default to 50/50 if ratio missing
         }
       } else {
         // --- STANDARD EQUAL/SHARE SPLIT ---
@@ -203,8 +199,8 @@ class ExpenseController extends GetxController {
       Get.back();
       Get.snackbar('Success!', 'Expense added successfully.');
     } catch (e) {
-      debugPrint("ERROR adding expense: $e");
-      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
+      debugPrint("ERROR adding expense: \$e");
+      Get.snackbar('Error', 'Failed to add expense: \${e.toString()}');
     } finally {
       isLoading.value = false;
     }

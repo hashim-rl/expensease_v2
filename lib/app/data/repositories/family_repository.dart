@@ -10,10 +10,10 @@ class FamilyRepository {
   final String? _uid = FirebaseAuth.instance.currentUser?.uid;
 
   // --- Utility to get sub-collection references ---
-  CollectionReference _tasksCollection(String groupId) =>
+  CollectionReference<Map<String, dynamic>> _tasksCollection(String groupId) =>
       _firestore.collection('groups').doc(groupId).collection('tasks');
 
-  CollectionReference _documentsCollection(String groupId) =>
+  CollectionReference<Map<String, dynamic>> _documentsCollection(String groupId) =>
       _firestore.collection('groups').doc(groupId).collection('documents');
 
   // --- Task Methods ---

@@ -69,7 +69,6 @@ class ExpenseRepository {
       await expenseRef.set(newExpense.toFirestore());
 
     } catch (e) {
-      print("Error adding expense: $e");
       throw Exception('Failed to add expense. Please try again.');
     }
   }
@@ -131,7 +130,6 @@ class ExpenseRepository {
       await templateRef.set(data);
 
     } catch (e) {
-      print("Error adding recurring expense template: $e");
       throw Exception('Failed to save recurring expense template.');
     }
   }
@@ -148,7 +146,6 @@ class ExpenseRepository {
 
       await templateRef.delete();
     } catch (e) {
-      print("Error deleting recurring expense template: $e");
       throw Exception('Failed to delete recurring expense template.');
     }
   }
@@ -224,7 +221,6 @@ class ExpenseRepository {
       await commentsRef.add(newCommentData);
 
     } catch (e) {
-      print("Error posting comment: $e");
       throw Exception('Failed to post comment. Please try again.');
     }
   }
@@ -265,9 +261,7 @@ class ExpenseRepository {
 
       await expenseRef.set(newExpense.toFirestore());
 
-      print("Payment expense added: Amount=$amount Group=$groupId ID=${expenseRef.id}");
     } catch (e) {
-      print("Error adding payment expense: $e");
       throw Exception('Failed to record payment settlement. Please try again.');
     }
   }

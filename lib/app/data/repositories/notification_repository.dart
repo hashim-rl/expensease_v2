@@ -1,14 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:get/get.dart';
 import 'package:expensease/app/data/models/notification_model.dart';
 import 'package:expensease/app/data/providers/firebase_provider.dart';
 import 'package:expensease/app/services/auth_service.dart';
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 
 class NotificationRepository {
   final FirebaseProvider _firebaseProvider = Get.find<FirebaseProvider>();
   final AuthService _authService = Get.find<AuthService>();
 
-  String? get _uid => _authService.currentUser.value?.uid;
+  String? get _uid => _authService.user.value?.uid;
 
   /// Returns a live stream of all unread notifications for the current user,
   /// ordered by timestamp (newest first).
@@ -43,6 +44,8 @@ class NotificationRepository {
         isRead: true,
         type: 'error',
         senderUid: '',
+        icon: Icons.error,
+        iconColor: Colors.red,
       );
     }
 
@@ -54,6 +57,8 @@ class NotificationRepository {
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       isRead: data['isRead'] ?? false,
       type: data['type'] ?? 'general',
+      icon: Icons.notifications,
+      iconColor: Colors.blue,
     );
   }
 
@@ -68,7 +73,7 @@ class NotificationRepository {
           .doc(notificationId)
           .update({'isRead': true});
     } catch (e) {
-      print("Error marking notification $notificationId as read: $e");
+      // Re-throw as a more specific exception or handle with a logging service
       throw Exception('Failed to update notification status.');
     }
   }
@@ -91,7 +96,7 @@ class NotificationRepository {
       }
       await batch.commit();
     } catch (e) {
-      print("Error clearing all notifications: $e");
+      // Re-throw as a more specific exception or handle with a logging service
       throw Exception('Failed to clear notifications.');
     }
   }

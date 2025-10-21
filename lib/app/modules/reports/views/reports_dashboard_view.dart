@@ -23,7 +23,9 @@ class ReportsDashboardView extends GetView<ReportsController> {
         elevation: 0,
       ),
       body: Obx(() {
-        if (controller.isLoading.value && controller.memberBalances.isEmpty && controller.spendingByCategory.isEmpty) {
+        if (controller.isLoading.value &&
+            controller.memberBalances.isEmpty &&
+            controller.spendingByCategory.isEmpty) {
           return const Center(child: CircularProgressIndicator());
         }
         return SingleChildScrollView(
@@ -74,13 +76,14 @@ class ReportsDashboardView extends GetView<ReportsController> {
     // Collect data for the BarChart
     final spendingEntries = controller.spendingByCategory.entries.toList();
     final categories = controller.spendingByCategory.keys.toList();
-    final totalSpending = controller.spendingByCategory.values.fold(0.0, (sum, amount) => sum + amount);
+    final totalSpending = controller.spendingByCategory.values.fold(
+        0.0, (sum, amount) => sum + amount);
 
     // Only show the chart if there is data
     if (spendingEntries.isEmpty) {
-      return const Card(
+      return Card(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Padding(
+        child: const Padding(
           padding: EdgeInsets.all(16.0),
           child: Text("No expenses found for the selected period."),
         ),
@@ -94,28 +97,32 @@ class ReportsDashboardView extends GetView<ReportsController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Monthly Overview (Total: \$${totalSpending.toStringAsFixed(2)})",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              "Monthly Overview (Total: \$${totalSpending.toStringAsFixed(2)})",
+              style:
+              const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             SizedBox(
               height: 250,
               child: BarChart(
                 BarChartData(
                   alignment: BarChartAlignment.spaceAround,
-                  maxY: spendingEntries.map((e) => e.value).reduce((a, b) => a > b ? a : b) * 1.1,
+                  maxY: spendingEntries
+                      .map((e) => e.value)
+                      .reduce((a, b) => a > b ? a : b) *
+                      1.1,
                   titlesData: FlTitlesData(
                     show: true,
                     bottomTitles: AxisTitles(
                       sideTitles: SideTitles(
                         showTitles: true,
-                        getTitlesWidget: (value, meta) {
-                          // Display category names on the X-axis
+                        getTitlesWidget: (value, titleMeta) {
                           final index = value.toInt();
                           if (index >= 0 && index < categories.length) {
-                            return SideTitleWidget(
-                              axisSide: meta.axisSide,
-                              angle: 0,
-                              child: Text(categories[index], style: const TextStyle(fontSize: 10)),
+                            return Text(
+                              categories[index],
+                              style: const TextStyle(fontSize: 10),
                             );
                           }
                           return const Text('');
@@ -123,10 +130,13 @@ class ReportsDashboardView extends GetView<ReportsController> {
                       ),
                     ),
                     leftTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: true, reservedSize: 40),
+                      sideTitles:
+                      SideTitles(showTitles: true, reservedSize: 40),
                     ),
-                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    topTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(
+                        sideTitles: SideTitles(showTitles: false)),
                   ),
                   barGroups: spendingEntries.asMap().entries.map((entry) {
                     final index = entry.key;
@@ -138,7 +148,10 @@ class ReportsDashboardView extends GetView<ReportsController> {
                           toY: data.value,
                           color: AppColors.primaryBlue,
                           width: 16,
-                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(6), topRight: Radius.circular(6)),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(6),
+                            topRight: Radius.circular(6),
+                          ),
                         ),
                       ],
                     );
@@ -167,37 +180,49 @@ class ReportsDashboardView extends GetView<ReportsController> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("Debt/Credit Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              "Debt/Credit Summary",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 16),
             // Display the final balances for each member
             ...controller.memberBalances.entries.map((entry) {
               final uid = entry.key;
               final balance = entry.value;
               final isOwed = balance > 0;
-              final color = isOwed ? AppColors.green : (balance < 0 ? AppColors.red : AppColors.textPrimary);
+              final color = isOwed
+                  ? AppColors.green
+                  : (balance < 0
+                  ? AppColors.red
+                  : AppColors.textPrimary);
 
               // CRITICAL FIX: Use FutureBuilder to resolve UID to Name
               return FutureBuilder<String>(
                 future: userService.getUserName(uid),
                 builder: (context, snapshot) {
-                  final name = snapshot.data ?? (uid.length > 10 ? '${uid.substring(0, 7)}...' : uid);
+                  final name = snapshot.data ??
+                      (uid.length > 10 ? '${uid.substring(0, 7)}...' : uid);
                   return ListTile(
                     leading: CircleAvatar(child: Text(name.substring(0, 1))),
                     title: Text(name),
                     trailing: Text(
                       "\$${balance.abs().toStringAsFixed(2)}",
-                      style: TextStyle(color: color, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                          color: color, fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text(isOwed ? 'is owed' : (balance < 0 ? 'owes' : 'settled')),
+                    subtitle:
+                    Text(isOwed ? 'is owed' : (balance < 0 ? 'owes' : 'settled')),
                   );
                 },
               );
-            }).toList(),
+            }),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: controller.generateAndPreviewPdf,
-              style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryBlue),
-              child: const Text("Download as PDF", style: TextStyle(color: Colors.white)),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryBlue),
+              child: const Text("Download as PDF",
+                  style: TextStyle(color: Colors.white)),
             )
           ],
         ),

@@ -14,8 +14,8 @@ class FamilyTaskModel {
   });
 
   /// This factory constructor builds a FamilyTaskModel from a Firestore document.
-  factory FamilyTaskModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data()!;
+  factory FamilyTaskModel.fromFirestore(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
     return FamilyTaskModel(
       id: doc.id,
       title: data['title'] ?? '',
