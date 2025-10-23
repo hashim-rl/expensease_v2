@@ -126,7 +126,7 @@ class ExpenseDetailsView extends GetView<ExpenseDetailsController> {
                   title: Text(comment.text),
                   // NEW: Display the author's name and the comment timestamp
                   subtitle: Text(
-                    '${authorName} • ${DateFormat('MMM d, h:mm a').format(comment.timestamp)}',
+                    '$authorName • ${DateFormat('MMM d, h:mm a').format(comment.timestamp)}',
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
                   ),
                 );

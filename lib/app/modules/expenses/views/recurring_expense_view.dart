@@ -28,7 +28,7 @@ class RecurringExpenseView extends GetView<RecurringExpenseController> {
           itemCount: controller.recurringExpenses.length,
           itemBuilder: (context, index) {
             final expense = controller.recurringExpenses[index];
-            final nextDueDate = expense.nextDueDate.toDate();
+            final nextDueDate = expense.nextDueDate;
 
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),

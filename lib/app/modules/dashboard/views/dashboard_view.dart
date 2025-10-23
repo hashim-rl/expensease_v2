@@ -57,11 +57,10 @@ class DashboardView extends GetView<DashboardController> {
               child: TabBarView(
                 children: [
                   _buildSummaryContent(),
-                  const MealView(),
-                  const SharedBuysView(),
-                  // --- THIS IS THE FINAL FIX ---
-                  // Replace the placeholder with our new BillsView
-                  const BillsView(),
+                  MealView(),
+                  SharedBuysView(),
+                  // FIX APPLIED: Removed 'const' because BillsView no longer has a const constructor (to fix the Get.find issue)
+                  BillsView(),
                 ],
               ),
             ),

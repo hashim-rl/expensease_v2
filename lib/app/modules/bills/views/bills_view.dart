@@ -6,12 +6,16 @@ import 'package:expensease/app/modules/dashboard/controllers/dashboard_controlle
 import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
 
 class BillsView extends GetView<BillsController> {
-  const BillsView({super.key});
+  // FIX: Remove 'const' keyword from the constructor.
+  // This allows the non-constant Get.find<DashboardController>() to be used
+  // in the field initialization.
+  BillsView({super.key});
+
+  // CRITICAL FIX: Find the parent controller once as a final field.
+  final DashboardController dashboardController = Get.find<DashboardController>();
 
   @override
   Widget build(BuildContext context) {
-    final DashboardController dashboardController = Get.find<DashboardController>();
-
     return Scaffold(
       body: Obx(() {
         if (controller.isLoading.value) {
@@ -56,7 +60,7 @@ class BillsView extends GetView<BillsController> {
       }),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Use the reusable dialog to add a 'Bill'
+          // Use the initialized final field
           dashboardController.showGroupSelectionDialog(category: 'Bill');
         },
         child: const Icon(Icons.add),

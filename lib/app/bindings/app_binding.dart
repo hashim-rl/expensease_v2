@@ -6,15 +6,13 @@ import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/repositories/user_repository.dart';
 import 'package:expensease/app/modules/authentication/controllers/auth_controller.dart';
 import 'package:expensease/app/data/repositories/family_repository.dart';
+import 'package:expensease/app/modules/groups/controllers/group_controller.dart'; // Import GroupController
 
 class AppBinding extends Bindings {
   @override
   void dependencies() {
     // --- THIS IS THE DEFINITIVE FIX FOR DEPENDENCY INJECTION ---
     // This binding now uses `Get.lazyPut` without `fenix` or `permanent`.
-    // Services will be created when needed and disposed of automatically when
-    // no longer in use, which is a more efficient use of memory.
-    // The critical AuthService is already handled permanently in main.dart.
 
     // Core Provider
     Get.lazyPut(() => FirebaseProvider());
@@ -25,6 +23,11 @@ class AppBinding extends Bindings {
     Get.lazyPut(() => GroupRepository());
     Get.lazyPut(() => ExpenseRepository());
     Get.lazyPut(() => FamilyRepository());
+
+    // Group Controller (CRITICAL FIX)
+    // Registering the GroupController here ensures AuthController and other
+    // controllers that depend on it via Get.find() can access it immediately.
+    Get.lazyPut(() => GroupController());
 
     // Authentication Controller
     Get.lazyPut(() => AuthController());

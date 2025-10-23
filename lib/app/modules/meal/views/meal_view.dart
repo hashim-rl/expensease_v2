@@ -6,12 +6,15 @@ import 'package:expensease/app/modules/meal/controllers/meal_controller.dart';
 import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
 
 class MealView extends GetView<MealController> {
-  const MealView({super.key});
+  // 1. Removed 'const' from the constructor
+  MealView({super.key});
+
+  // 2. Initialized DashboardController as a final field here, outside build()
+  final DashboardController dashboardController = Get.find<DashboardController>();
 
   @override
   Widget build(BuildContext context) {
-    // Find the DashboardController to access the reusable dialog
-    final DashboardController dashboardController = Get.find<DashboardController>();
+    // Removed: final DashboardController dashboardController = Get.find<DashboardController>();
 
     return Scaffold(
       body: Obx(() {
@@ -26,10 +29,9 @@ class MealView extends GetView<MealController> {
           ],
         );
       }),
-      // --- THIS IS THE ACTUAL FIX ---
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Call the reusable dialog from the DashboardController and pass 'Meal' as the category
+          // Use the initialized final field
           dashboardController.showGroupSelectionDialog(category: 'Meal');
         },
         child: const Icon(Icons.add),

@@ -143,7 +143,7 @@ class GroupRepository {
     }
 
     await batch.commit();
-    debugPrint("--- REPO TRACE: Group '${groupName}' created successfully with ID: ${newGroupRef.id}");
+    debugPrint("--- REPO TRACE: Group '$groupName' created successfully with ID: ${newGroupRef.id}");
   }
 
   // --- NEW METHOD FOR PHASE 3, STEP 5.1 ---

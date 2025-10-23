@@ -6,11 +6,15 @@ import 'package:expensease/app/modules/shared_buys/controllers/shared_buys_contr
 import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
 
 class SharedBuysView extends GetView<SharedBuysController> {
-  const SharedBuysView({super.key});
+  // FIX 1: Removed 'const' from the constructor
+  SharedBuysView({super.key});
+
+  // FIX 2: Moved Get.find() outside of build() to prevent timing/const issues
+  final DashboardController dashboardController = Get.find<DashboardController>();
 
   @override
   Widget build(BuildContext context) {
-    final DashboardController dashboardController = Get.find<DashboardController>();
+    // Removed the inline Get.find<DashboardController>()
 
     return Scaffold(
       body: Obx(() {
@@ -56,7 +60,7 @@ class SharedBuysView extends GetView<SharedBuysController> {
       }),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Use the reusable dialog to add a 'Shared Buy'
+          // Use the initialized final field
           dashboardController.showGroupSelectionDialog(category: 'Shared Buy');
         },
         child: const Icon(Icons.add),
