@@ -3,6 +3,8 @@ import 'package:get/get.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/modules/groups/controllers/members_controller.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:expensease/app/routes/app_routes.dart'; // <-- NEW IMPORT
+import 'package:expensease/app/shared/theme/app_colors.dart'; // <-- NEW IMPORT
 
 class MembersPermissionsView extends GetView<MembersController> {
   const MembersPermissionsView({super.key});
@@ -34,6 +36,8 @@ class MembersPermissionsView extends GetView<MembersController> {
         child: Column(
           children: [
             _buildEditNameCard(),
+            const SizedBox(height: 24),
+            _buildSplitSettingsCard(), // <-- NEW CARD ADDED
             const SizedBox(height: 24),
             _buildMemberPermissionsCard(),
             const SizedBox(height: 24),
@@ -80,6 +84,40 @@ class MembersPermissionsView extends GetView<MembersController> {
       ),
     );
   }
+
+  // --- NEW WIDGET ---
+  Widget _buildSplitSettingsCard() {
+    return Card(
+      elevation: 2.0,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Splitting Settings",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.percent_outlined,
+                  color: AppColors.primaryBlue),
+              title: const Text("Proportional Splitting",
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              subtitle: const Text("Set default split ratios for this group."),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () {
+                // We will create this route in the next steps
+                Get.toNamed(Routes.SPLIT_SETUP,
+                    arguments: controller.group.value);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+  // --- END OF NEW WIDGET ---
 
   Widget _buildMemberPermissionsCard() {
     return Card(
@@ -129,14 +167,18 @@ class MembersPermissionsView extends GetView<MembersController> {
   }
 
   Widget _memberRow(MemberModel member) {
-    final bool isCurrentUser = member.id == FirebaseAuth.instance.currentUser?.uid;
+    final bool isCurrentUser =
+        member.id == FirebaseAuth.instance.currentUser?.uid;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
-        child: Text(member.name.isNotEmpty ? member.name.substring(0, 1).toUpperCase() : '?'),
+        child: Text(member.name.isNotEmpty
+            ? member.name.substring(0, 1).toUpperCase()
+            : '?'),
       ),
-      title: Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+      title:
+      Text(member.name, style: const TextStyle(fontWeight: FontWeight.bold)),
       subtitle: Text(isCurrentUser ? "You (${member.role})" : member.role),
       trailing: Obx(() {
         // Only Admins can change roles or remove other members
@@ -161,7 +203,8 @@ class MembersPermissionsView extends GetView<MembersController> {
               ],
             ),
             IconButton(
-              icon: Icon(Icons.remove_circle_outline, color: Colors.red.shade400),
+              icon: Icon(Icons.remove_circle_outline,
+                  color: Colors.red.shade400),
               tooltip: "Remove ${member.name}",
               onPressed: () => controller.removeMember(member.id, member.name),
             ),
@@ -180,7 +223,8 @@ class MembersPermissionsView extends GetView<MembersController> {
         side: BorderSide(color: Colors.red.shade200),
       ),
       child: ListTile(
-        leading: Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
+        leading:
+        Icon(Icons.delete_forever_outlined, color: Colors.red.shade700),
         title: Text(
           "Delete Group",
           style: TextStyle(
@@ -223,7 +267,8 @@ class MembersPermissionsView extends GetView<MembersController> {
                 ? const SizedBox(
                 height: 20,
                 width: 20,
-                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
                 : const Text('Add by Email'),
           )),
         ],

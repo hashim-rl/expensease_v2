@@ -17,11 +17,12 @@ abstract class Routes {
   static const EXPENSE_DETAILS = _Paths.EXPENSE_DETAILS;
   static const RECURRING_EXPENSE = _Paths.RECURRING_EXPENSE;
 
-  // Group Management (3 screens)
+  // Group Management (4 screens) <-- UPDATED COUNT
   static const GROUPS_LIST = _Paths.GROUPS_LIST;
   static const GROUP_DASHBOARD = _Paths.GROUP_DASHBOARD;
   static const MEMBERS_PERMISSIONS = _Paths.MEMBERS_PERMISSIONS;
   static const SETTLE_UP = _Paths.SETTLE_UP;
+  static const SPLIT_SETUP = _Paths.SPLIT_SETUP; // <-- NEW ROUTE
 
   // Analytics and Reporting (3 screens)
   static const REPORTS_DASHBOARD = _Paths.REPORTS_DASHBOARD;
@@ -34,9 +35,7 @@ abstract class Routes {
   static const PROFILE = _Paths.PROFILE;
   static const EDIT_PROFILE = _Paths.EDIT_PROFILE; // New Route
 
-  // Advanced Modules (3 screens) - MEAL route added
-  static const COUPLES_MODE_SETUP = _Paths.COUPLES_MODE_SETUP;
-  static const FAMILY_MODE_DASHBOARD = _Paths.FAMILY_MODE_DASHBOARD;
+  // Advanced Modules (1 screen) - MEAL route added
   static const MEAL = _Paths.MEAL; // New Route for Meal Feature
 }
 
@@ -64,6 +63,7 @@ abstract class _Paths {
   static const GROUP_DASHBOARD = '/group-dashboard';
   static const MEMBERS_PERMISSIONS = '/members-permissions';
   static const SETTLE_UP = '/settle-up';
+  static const SPLIT_SETUP = '/split-setup'; // <-- NEW PATH
 
   // Reports
   static const REPORTS_DASHBOARD = '/reports-dashboard';
@@ -77,7 +77,5 @@ abstract class _Paths {
   static const EDIT_PROFILE = '/edit-profile';
 
   // Specialized Modes
-  static const COUPLES_MODE_SETUP = '/couples-mode-setup';
-  static const FAMILY_MODE_DASHBOARD = '/family-mode-dashboard';
   static const MEAL = '/meal'; // New Path for Meal Feature
 }

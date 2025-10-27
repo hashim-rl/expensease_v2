@@ -12,7 +12,8 @@ class ExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository;
   final CurrencyService _currencyService = CurrencyService();
   // NEW: Inject Recurring Controller to use its creation method
-  final RecurringExpenseController _recurringController = Get.find<RecurringExpenseController>();
+  final RecurringExpenseController _recurringController =
+  Get.find<RecurringExpenseController>();
 
   ExpenseController({
     required ExpenseRepository expenseRepository,
@@ -27,11 +28,12 @@ class ExpenseController extends GetxController {
   final descriptionController = TextEditingController();
   final amountController = TextEditingController();
   final dateController = TextEditingController();
-  final whatsappNumberController = TextEditingController(); // NEW: For recurring reminders
+  final whatsappNumberController =
+  TextEditingController(); // NEW: For recurring reminders
 
   // Reactive values
   final isLoading = true.obs;
-  final splitMethod = 'Split Equally'.obs;
+  final splitMethod = 'Split Equally'.obs; // Default, will be overridden
   final selectedPayerUid = Rx<String?>(null);
   final participantShares = <String, int>{}.obs;
   final members = <UserModel>[].obs;
@@ -42,7 +44,6 @@ class ExpenseController extends GetxController {
   // NEW: Recurring specific fields
   final selectedFrequency = 'Monthly'.obs;
   final selectedNextDueDate = Rx<DateTime?>(null);
-
 
   @override
   void onInit() {
@@ -78,7 +79,8 @@ class ExpenseController extends GetxController {
 
       // Set default date and next due date
       dateController.text = DateFormat('yyyy-MM-dd').format(DateTime.now());
-      selectedNextDueDate.value = DateTime.now().add(const Duration(days: 1)); // Default to tomorrow
+      selectedNextDueDate.value =
+          DateTime.now().add(const Duration(days: 1)); // Default to tomorrow
 
       // ✅ Select default payer
       if (currentUserUid != null &&
@@ -88,24 +90,28 @@ class ExpenseController extends GetxController {
         selectedPayerUid.value = members.first.uid;
       }
 
-      // Give each member 1 share initially (unless proportional split is active)
-      if (group.type != 'Couple' || group.incomeSplitRatio == null) {
-        participantShares.assignAll({
-          for (var member in members) member.uid: 1,
-        });
-      } else {
-        // Couples mode special case: Default to proportional split
+      // --- UPDATED INITIALIZATION LOGIC ---
+      // Check if a proportional split ratio is defined for this group
+      if (group.incomeSplitRatio != null &&
+          group.incomeSplitRatio!.isNotEmpty) {
+        // If a ratio exists, default to 'Proportional'
         splitMethod.value = 'Proportional';
-        participantShares.assignAll({
-          for (var member in members) member.uid: 1, // Still initialize for UI, actual split uses ratio
-        });
+      } else {
+        // No ratio exists, default to 'Split Equally'
+        splitMethod.value = 'Split Equally';
       }
+
+      // Always initialize participant shares to 1 for the "Split by Shares" UI
+      participantShares.assignAll({
+        for (var member in members) member.uid: 1,
+      });
+      // --- END OF UPDATED LOGIC ---
 
       debugPrint(
           "ExpenseController initialized with ${members.length} members in group ${group.name}");
     } catch (e) {
-      Get.snackbar('Error', 'Failed to initialize: \${e.toString()}');
-      debugPrint("ERROR initializing ExpenseController: \$e");
+      Get.snackbar('Error', 'Failed to initialize: ${e.toString()}');
+      debugPrint("ERROR initializing ExpenseController: $e");
     } finally {
       isLoading.value = false;
     }
@@ -134,33 +140,47 @@ class ExpenseController extends GetxController {
       return;
     }
 
-    final totalShares = participantShares.values.fold<int>(0, (sum, shares) => sum + shares);
-    if (totalShares == 0 && (group.type != 'Couple' || splitMethod.value != 'Proportional')) {
-      Get.snackbar('No Participants', 'Please select at least one participant.');
-      return;
+    // 2. Validate participants based on split method
+    if (splitMethod.value != 'Proportional') {
+      final totalShares =
+      participantShares.values.fold<int>(0, (sum, shares) => sum + shares);
+      if (totalShares == 0) {
+        Get.snackbar(
+            'No Participants', 'Please select at least one participant.');
+        return;
+      }
     }
 
     isLoading.value = true;
     try {
       double finalAmount = totalAmount;
 
-      // 2. Currency conversion (Trip groups only)
+      // 3. Currency conversion (Trip groups only)
       if (group.type == 'Trip' && selectedCurrency.value != 'USD') {
-        final rate = await _currencyService.getConversionRate(selectedCurrency.value, 'USD');
+        final rate = await _currencyService.getConversionRate(
+            selectedCurrency.value, 'USD');
         finalAmount = totalAmount * rate;
       }
 
-      // 3. Determine final split based on mode
+      // 4. Determine final split based on mode
       final Map<String, double> finalSplit = {};
 
-      // --- CRITICAL FIX 1: COUPLES MODE PROPORTIONAL SPLIT ---
-      if (group.type == 'Couple' && splitMethod.value == 'Proportional' && group.incomeSplitRatio != null) {
+      // --- UPDATED PROPORTIONAL SPLIT LOGIC ---
+      if (splitMethod.value == 'Proportional' &&
+          group.incomeSplitRatio != null &&
+          group.incomeSplitRatio!.isNotEmpty) {
         final ratio = group.incomeSplitRatio!; // Map<UID, Ratio>
+
         for (var memberId in group.memberIds) {
-          finalSplit[memberId] = finalAmount * (ratio[memberId] ?? 0.5); // Default to 50/50 if ratio missing
+          // Apply the member's ratio, default to 0.0 if not in map
+          finalSplit[memberId] = finalAmount * (ratio[memberId] ?? 0.0);
         }
       } else {
         // --- STANDARD EQUAL/SHARE SPLIT ---
+        final totalShares =
+        participantShares.values.fold<int>(0, (sum, shares) => sum + shares);
+
+        // This check should be redundant due to validation above, but good for safety
         if (totalShares > 0) {
           final double perShareAmount = finalAmount / totalShares;
           for (var entry in participantShares.entries) {
@@ -171,9 +191,9 @@ class ExpenseController extends GetxController {
         }
       }
 
-      // 4. Decide between recurring template creation or single expense
+      // 5. Decide between recurring template creation or single expense
       if (isRecurring.value) {
-        // --- CRITICAL FIX 2: RECURRING EXPENSE CREATION ---
+        // --- RECURRING EXPENSE CREATION ---
         await _recurringController.createRecurringExpense(
           description: descriptionController.text.trim(),
           amount: totalAmount, // Send original amount
@@ -181,7 +201,9 @@ class ExpenseController extends GetxController {
           split: finalSplit,
           frequency: selectedFrequency.value,
           nextDueDate: selectedNextDueDate.value!,
-          whatsappNumber: whatsappNumberController.text.trim().isNotEmpty ? whatsappNumberController.text.trim() : null,
+          whatsappNumber: whatsappNumberController.text.trim().isNotEmpty
+              ? whatsappNumberController.text.trim()
+              : null,
         );
       } else {
         // --- SINGLE EXPENSE CREATION ---
@@ -199,8 +221,8 @@ class ExpenseController extends GetxController {
       Get.back();
       Get.snackbar('Success!', 'Expense added successfully.');
     } catch (e) {
-      debugPrint("ERROR adding expense: \$e");
-      Get.snackbar('Error', 'Failed to add expense: \${e.toString()}');
+      debugPrint("ERROR adding expense: $e");
+      Get.snackbar('Error', 'Failed to add expense: ${e.toString()}');
     } finally {
       isLoading.value = false;
     }
@@ -222,7 +244,8 @@ class ExpenseController extends GetxController {
   void selectNextDueDate() async {
     DateTime? picked = await showDatePicker(
       context: Get.context!,
-      initialDate: selectedNextDueDate.value ?? DateTime.now().add(const Duration(days: 1)),
+      initialDate: selectedNextDueDate.value ??
+          DateTime.now().add(const Duration(days: 1)),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
     );

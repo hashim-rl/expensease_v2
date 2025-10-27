@@ -32,14 +32,17 @@ import '../modules/settings/bindings/settings_binding.dart';
 import '../modules/settings/views/notifications_view.dart';
 import '../modules/settings/views/profile_view.dart';
 import '../modules/settings/views/settings_view.dart';
-import '../modules/specialized_modes/bindings/specialized_modes_binding.dart';
-import '../modules/specialized_modes/views/couples_mode_setup_view.dart';
-import '../modules/specialized_modes/views/family_mode_dashboard_view.dart';
+// REMOVED specialized_modes imports
 import 'app_routes.dart';
 
 // Imports for the new Edit Profile screen
 import '../modules/settings/views/edit_profile_view.dart';
 import '../modules/settings/bindings/edit_profile_binding.dart';
+
+// --- NEW IMPORTS FOR SPLIT SETUP ---
+import '../modules/groups/bindings/split_setup_binding.dart';
+import '../modules/groups/views/split_setup_view.dart';
+// ------------------------------------
 
 class AppPages {
   static final routes = [
@@ -87,6 +90,12 @@ class AppPages {
         name: Routes.SETTLE_UP,
         page: () => const SettleUpView(),
         binding: SettleUpBinding()),
+    // --- NEW PAGE FOR SPLIT SETUP ---
+    GetPage(
+        name: Routes.SPLIT_SETUP,
+        page: () => const SplitSetupView(),
+        binding: SplitSetupBinding()),
+    // ---------------------------------
 
     // EXPENSES
     GetPage(
@@ -134,14 +143,6 @@ class AppPages {
         page: () => const NotificationsView(),
         binding: NotificationsBinding()),
 
-    // SPECIALIZED MODES
-    GetPage(
-        name: Routes.COUPLES_MODE_SETUP,
-        page: () => const CouplesModeSetupView(),
-        binding: SpecializedModesBinding()),
-    GetPage(
-        name: Routes.FAMILY_MODE_DASHBOARD,
-        page: () => const FamilyModeDashboardView(),
-        binding: SpecializedModesBinding()),
+    // REMOVED SPECIALIZED MODES
   ];
 }

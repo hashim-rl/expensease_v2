@@ -5,7 +5,6 @@ import 'package:expensease/app/data/repositories/expense_repository.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/repositories/user_repository.dart';
 import 'package:expensease/app/modules/authentication/controllers/auth_controller.dart';
-import 'package:expensease/app/data/repositories/family_repository.dart';
 import 'package:expensease/app/modules/groups/controllers/group_controller.dart'; // Import GroupController
 
 class AppBinding extends Bindings {
@@ -22,7 +21,6 @@ class AppBinding extends Bindings {
     Get.lazyPut(() => UserRepository());
     Get.lazyPut(() => GroupRepository());
     Get.lazyPut(() => ExpenseRepository());
-    Get.lazyPut(() => FamilyRepository());
 
     // Group Controller (CRITICAL FIX)
     // Registering the GroupController here ensures AuthController and other

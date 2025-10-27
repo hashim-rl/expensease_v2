@@ -31,18 +31,6 @@ class AppDrawer extends StatelessWidget {
             },
           ),
           const Divider(),
-          _buildSectionHeader('Specialized Modes'),
-          _buildDrawerItem(
-            icon: Icons.favorite_border,
-            text: 'Couples Mode',
-            onTap: () => Get.toNamed(Routes.COUPLES_MODE_SETUP),
-          ),
-          _buildDrawerItem(
-            icon: Icons.family_restroom_outlined,
-            text: 'Family Mode',
-            onTap: () => Get.toNamed(Routes.FAMILY_MODE_DASHBOARD),
-          ),
-          const Divider(),
           _buildDrawerItem(
             icon: Icons.settings_outlined,
             text: 'Settings',

@@ -6,7 +6,7 @@ class GroupModel {
   final String? coverPhotoUrl;
   final String type;
   final List<String> memberIds;
-  final Map<String, double>? incomeSplitRatio;
+  late final Map<String, double>? incomeSplitRatio;
   final Timestamp createdAt;
   final bool isLocal;
 
