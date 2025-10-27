@@ -4,6 +4,10 @@ import 'package:intl/intl.dart';
 import 'package:expensease/app/modules/expenses/controllers/recurring_expense_controller.dart';
 import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
 import 'package:expensease/app/shared/widgets/list_shimmer_loader.dart';
+// --- Add AppColors for consistency ---
+import 'package:expensease/app/shared/theme/app_colors.dart';
+import 'package:expensease/app/shared/theme/text_styles.dart';
+
 
 class RecurringExpenseView extends GetView<RecurringExpenseController> {
   const RecurringExpenseView({super.key});
@@ -29,17 +33,31 @@ class RecurringExpenseView extends GetView<RecurringExpenseController> {
           itemBuilder: (context, index) {
             final expense = controller.recurringExpenses[index];
             final nextDueDate = expense.nextDueDate;
+            // --- Determine frequency text ---
+            final frequencyText = expense.frequency.isNotEmpty
+                ? expense.frequency[0].toUpperCase() + expense.frequency.substring(1)
+                : 'Unknown Frequency';
 
             return Card(
               margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              // --- Add some subtle elevation and shape ---
+              elevation: 1,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.event_repeat)),
-                title: Text(expense.description, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('Next due on: ${DateFormat.yMMMd().format(nextDueDate)}'),
-                trailing: Text('\$${expense.amount.toStringAsFixed(2)}', style: const TextStyle(fontSize: 16)),
+                // --- Use a more specific icon and consistent color ---
+                leading: const CircleAvatar(
+                    backgroundColor: AppColors.primaryLight,
+                    child: Icon(Icons.autorenew, color: AppColors.primaryBlue)
+                ),
+                title: Text(expense.description, style: AppTextStyles.bodyBold),
+                // --- Show frequency along with next due date ---
+                subtitle: Text('$frequencyText • Next: ${DateFormat.yMMMd().format(nextDueDate)}'),
+                trailing: Text(
+                  NumberFormat.currency(symbol: '\$').format(expense.amount), // Use currency format
+                  style: AppTextStyles.bodyBold.copyWith(fontSize: 16),
+                ),
                 onTap: () {
-                  // Show options to edit or delete
-                  _showOptionsDialog(context, expense.id);
+                  _showOptionsDialog(context, expense.id, expense.description); // Pass description for context
                 },
               ),
             );
@@ -49,38 +67,59 @@ class RecurringExpenseView extends GetView<RecurringExpenseController> {
     );
   }
 
-  void _showOptionsDialog(BuildContext context, String expenseId) {
+  // --- Pass description for better dialog titles ---
+  void _showOptionsDialog(BuildContext context, String expenseId, String description) {
     Get.defaultDialog(
-      title: "Manage Recurring Expense",
-      middleText: "What would you like to do?",
-      actions: [
-        TextButton(
-          child: const Text("Edit"),
-          onPressed: () {
-            Get.back();
-            // TODO: Navigate to an edit screen for this recurring expense
-          },
+        title: description, // Use expense name as title
+        titleStyle: AppTextStyles.headline2,
+        middleText: "Manage this recurring expense:",
+        middleTextStyle: AppTextStyles.bodyText1,
+        // --- Use Column for actions for better layout ---
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text("Edit Details"),
+              onTap: () {
+                Get.back();
+                Get.snackbar("Info", "Editing recurring expenses is not yet implemented.");
+                // TODO: Navigate to an edit screen for this recurring expense
+              },
+            ),
+            ListTile(
+              leading: Icon(Icons.delete_outline, color: AppColors.red),
+              title: Text("Delete Template", style: TextStyle(color: AppColors.red)),
+              onTap: () {
+                Get.back();
+                _showDeleteConfirmation(context, expenseId, description);
+              },
+            ),
+          ],
         ),
-        TextButton(
-          child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          onPressed: () {
-            Get.back();
-            _showDeleteConfirmation(context, expenseId);
-          },
-        ),
-      ],
+        // --- Remove default actions, handled by content ---
+        actions: [
+          TextButton(
+            child: const Text("Cancel"),
+            onPressed: () => Get.back(),
+          ),
+        ]
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, String expenseId) {
+  // --- Pass description for better confirmation text ---
+  void _showDeleteConfirmation(BuildContext context, String expenseId, String description) {
     Get.defaultDialog(
-      title: "Are you sure?",
-      middleText: "This will permanently delete the recurring expense. This action cannot be undone.",
+      title: "Delete Recurring Expense?",
+      titleStyle: AppTextStyles.headline2.copyWith(color: AppColors.red),
+      middleText: "Are you sure you want to permanently delete the template for \"$description\"? This action cannot be undone.",
+      middleTextStyle: AppTextStyles.bodyText1,
       confirm: TextButton(
         child: const Text("Delete", style: TextStyle(color: Colors.red)),
         onPressed: () {
           controller.deleteRecurringExpense(expenseId);
-          Get.back();
+          Get.back(); // Close confirmation dialog
         },
       ),
       cancel: TextButton(

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 
 class CurrencyService {
   // Replace 'YOUR_API_KEY' with the key you got from exchangerate-api.com
-  final String _apiKey = 'e588abc122f3bfa75efa65a3';
+  final String _apiKey = 'e588abc122f3bfa75efa65a3'; // Your API Key
   final String _baseUrl = 'https://v6.exchangerate-api.com/v6/';
 
   // Fetches the conversion rate between two currencies
@@ -15,7 +15,8 @@ class CurrencyService {
       // The API returns the conversion rate in the 'conversion_rate' field
       return (data['conversion_rate'] as num).toDouble();
     } else {
-      throw Exception('Failed to load exchange rate');
+      // Basic error handling
+      throw Exception('Failed to load exchange rate: ${response.statusCode} ${response.body}');
     }
   }
 }
