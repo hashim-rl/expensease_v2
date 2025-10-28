@@ -26,7 +26,8 @@ class ExpenseModel {
   });
 
   /// Creates an ExpenseModel from a Firestore document snapshot.
-  factory ExpenseModel.fromSnapshot(
+  // --- UPDATED: Renamed 'fromSnapshot' to 'fromFirestore' ---
+  factory ExpenseModel.fromFirestore(
       DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data() ?? {};
 

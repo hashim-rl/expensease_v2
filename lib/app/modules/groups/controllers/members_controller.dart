@@ -5,7 +5,8 @@ import 'package:expensease/app/data/models/group_model.dart';
 import 'package:expensease/app/data/models/member_model.dart';
 import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
+// REMOVED: Unnecessary DashboardController import
+// import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
 
 class MembersController extends GetxController {
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
@@ -27,17 +28,18 @@ class MembersController extends GetxController {
     groupNameController = TextEditingController(text: group.value.name);
 
     // Listen to the live stream of members from the repository
-    _membersSubscription = _groupRepository.getMembersStream(group.value.id).listen(
-          (memberList) {
-        members.value = memberList;
-        _updateCurrentUserRole();
-        isLoading.value = false;
-      },
-      onError: (error) {
-        isLoading.value = false;
-        Get.snackbar("Error", "Could not load members in real-time.");
-      },
-    );
+    _membersSubscription =
+        _groupRepository.getMembersStream(group.value.id).listen(
+              (memberList) {
+            members.value = memberList;
+            _updateCurrentUserRole();
+            isLoading.value = false;
+          },
+          onError: (error) {
+            isLoading.value = false;
+            Get.snackbar("Error", "Could not load members in real-time.");
+          },
+        );
   }
 
   /// Determines and updates the role of the currently logged-in user.
@@ -47,7 +49,8 @@ class MembersController extends GetxController {
 
     final currentUserMember = members.firstWhere(
           (m) => m.id == currentUserId,
-      orElse: () => MemberModel(id: '', name: '', role: 'Viewer', isPlaceholder: true),
+      orElse: () => MemberModel(
+          id: '', name: '', role: 'Viewer', isPlaceholder: true),
     );
     currentUserRole.value = currentUserMember.role;
   }
@@ -66,8 +69,8 @@ class MembersController extends GetxController {
       group.update((val) {
         val?.name = newName;
       });
-      // Also update the dashboard's group list to reflect the new name
-      Get.find<DashboardController>().fetchUserGroups();
+      // REMOVED: Unnecessary call to fetchUserGroups
+      // Get.find<DashboardController>().fetchUserGroups();
       Get.snackbar('Success', 'Group name updated successfully!');
     } catch (e) {
       Get.snackbar('Error', 'Failed to update group name.');
@@ -100,8 +103,8 @@ class MembersController extends GetxController {
       }
       Get.back(); // Close the add member dialog
 
-      // The stream will update the UI, but this ensures other parts of the app are aware
-      Get.find<DashboardController>().fetchUserGroups();
+      // REMOVED: Unnecessary call to fetchUserGroups
+      // Get.find<DashboardController>().fetchUserGroups();
 
       Get.snackbar('Success', result,
           backgroundColor: Colors.green, colorText: Colors.white);
@@ -118,13 +121,15 @@ class MembersController extends GetxController {
   Future<void> removeMember(String memberId, String memberName) async {
     // Prevent the user from removing themselves
     if (memberId == FirebaseAuth.instance.currentUser?.uid) {
-      Get.snackbar('Action Not Allowed', 'You cannot remove yourself from the group.');
+      Get.snackbar(
+          'Action Not Allowed', 'You cannot remove yourself from the group.');
       return;
     }
 
     Get.defaultDialog(
       title: "Remove Member",
-      middleText: "Are you sure you want to remove '$memberName' from this group? This action cannot be undone.",
+      middleText:
+      "Are you sure you want to remove '$memberName' from this group? This action cannot be undone.",
       textConfirm: "Remove",
       textCancel: "Cancel",
       confirmTextColor: Colors.white,
@@ -135,7 +140,8 @@ class MembersController extends GetxController {
           await _groupRepository.removeMemberFromGroup(
               groupId: group.value.id, memberId: memberId);
 
-          Get.find<DashboardController>().fetchUserGroups();
+          // REMOVED: Unnecessary call to fetchUserGroups
+          // Get.find<DashboardController>().fetchUserGroups();
 
           Get.snackbar('Success', "'$memberName' has been removed.",
               backgroundColor: Colors.green, colorText: Colors.white);

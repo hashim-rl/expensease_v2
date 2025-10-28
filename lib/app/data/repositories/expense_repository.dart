@@ -24,7 +24,8 @@ class ExpenseRepository {
     try {
       return _firebaseProvider.getExpensesForGroup(groupId).map((snapshot) {
         return snapshot.docs
-            .map((doc) => ExpenseModel.fromSnapshot(doc))
+        // --- UPDATED: fromSnapshot -> fromFirestore ---
+            .map((doc) => ExpenseModel.fromFirestore(doc))
             .toList();
       });
     } catch (e) {
@@ -84,7 +85,8 @@ class ExpenseRepository {
     try {
       // Points to the recurringExpenses subcollection under the group
       final recurringQuery = _firebaseProvider.firestore
-          .collection('groups').doc(groupId)
+          .collection('groups')
+          .doc(groupId)
           .collection('recurringExpenses')
           .orderBy('nextDueDate', descending: false);
 
@@ -111,8 +113,10 @@ class ExpenseRepository {
   }) async {
     try {
       final templateRef = _firebaseProvider.firestore
-          .collection('groups').doc(groupId)
-          .collection('recurringExpenses').doc();
+          .collection('groups')
+          .doc(groupId)
+          .collection('recurringExpenses')
+          .doc();
 
       // Create the data map using fields compatible with RecurringExpenseModel/Cloud Function
       final data = {
@@ -141,8 +145,10 @@ class ExpenseRepository {
   }) async {
     try {
       final templateRef = _firebaseProvider.firestore
-          .collection('groups').doc(groupId)
-          .collection('recurringExpenses').doc(templateId);
+          .collection('groups')
+          .doc(groupId)
+          .collection('recurringExpenses')
+          .doc(templateId);
 
       await templateRef.delete();
     } catch (e) {
@@ -152,12 +158,15 @@ class ExpenseRepository {
 
   // --- Live Stream of Comments ---
   /// Returns a live stream of all comments for a given expense, ordered by timestamp.
-  Stream<List<CommentModel>> getCommentsStreamForExpense(String groupId, String expenseId) {
+  Stream<List<CommentModel>> getCommentsStreamForExpense(
+      String groupId, String expenseId) {
     try {
       // NOTE: Assumes FirebaseProvider has a helper to get the subcollection query
       final commentsQuery = _firebaseProvider.firestore
-          .collection('groups').doc(groupId)
-          .collection('expenses').doc(expenseId)
+          .collection('groups')
+          .doc(groupId)
+          .collection('expenses')
+          .doc(expenseId)
           .collection('comments')
           .orderBy('timestamp', descending: true);
 
@@ -185,7 +194,8 @@ class ExpenseRepository {
         endDate: endDate,
       );
       return snapshot.docs
-          .map((doc) => ExpenseModel.fromSnapshot(doc))
+      // --- UPDATED: fromSnapshot -> fromFirestore ---
+          .map((doc) => ExpenseModel.fromFirestore(doc))
           .toList();
     } catch (e) {
       throw Exception('Failed to load report data: $e');
@@ -214,7 +224,8 @@ class ExpenseRepository {
         'expenseId': expenseId,
         'authorUid': authorUid,
         'text': text,
-        'timestamp': FieldValue.serverTimestamp(), // Use server timestamp for reliable ordering
+        'timestamp':
+        FieldValue.serverTimestamp(), // Use server timestamp for reliable ordering
       };
 
       // 3. Write to Firestore
@@ -247,13 +258,15 @@ class ExpenseRepository {
       // Model: Payer (fromUid) paid the entire amount. Recipient (toUid) owes the entire amount.
       final newExpense = ExpenseModel(
         id: expenseRef.id,
-        description: 'Payment from $payerUid to $recipientUid', // UIDs will be resolved to names in the UI layer
+        description:
+        'Payment from $payerUid to $recipientUid', // UIDs will be resolved to names in the UI layer
         totalAmount: amount,
         date: DateTime.now(),
         paidById: payerUid,
         // The recipient is the only one incurring this 'expense' debt.
         splitBetween: {recipientUid: amount},
-        category: 'Payment', // Crucial: Mark as 'Payment' for reporting exclusion/logic
+        category:
+        'Payment', // Crucial: Mark as 'Payment' for reporting exclusion/logic
         notes: 'Settlement for simplified debt.',
         receiptUrl: null,
         createdAt: Timestamp.now(),

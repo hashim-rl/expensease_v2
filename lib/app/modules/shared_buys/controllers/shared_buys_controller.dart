@@ -1,3 +1,4 @@
+import 'dart:async'; // ADDED
 import 'package:get/get.dart';
 import 'package:expensease/app/data/models/expense_model.dart';
 import 'package:expensease/app/data/repositories/expense_repository.dart';
@@ -19,33 +20,97 @@ class SharedBuysController extends GetxController {
   final isLoading = true.obs;
   final sharedBuyExpenses = <ExpenseModel>[].obs;
 
+  // --- ADDED: Listeners to manage real-time data ---
+  StreamSubscription? _groupsSubscription;
+  final List<StreamSubscription> _expenseSubscriptions = [];
+  final RxMap<String, List<ExpenseModel>> _sharedBuysByGroup =
+      <String, List<ExpenseModel>>{}.obs;
+
   @override
   void onInit() {
     super.onInit();
-    _loadSharedBuysData();
+    // --- ADDED: When the map of shared buys changes, re-process the final list ---
+    ever(_sharedBuysByGroup, (_) => _processAndSortSharedBuys());
+    // --- UPDATED: Call the new real-time listener ---
+    _listenToGroupsAndExpenses();
   }
 
-  Future<void> _loadSharedBuysData() async {
-    try {
-      isLoading.value = true;
-      final groups = await _groupRepository.getGroupsStream().first;
-      final allSharedBuys = <ExpenseModel>[];
+  // --- ADDED: New method to process the map into a sorted list ---
+  void _processAndSortSharedBuys() {
+    // Flatten the map of lists into a single list of all shared buys
+    final allSharedBuys =
+    _sharedBuysByGroup.values.expand((list) => list).toList();
+    // Sort by date, newest first
+    allSharedBuys.sort((a, b) => b.date.compareTo(a.date));
+    // Update the final reactive list for the UI
+    sharedBuyExpenses.value = allSharedBuys;
+  }
 
-      for (var group in groups) {
-        final groupExpenses =
-        await _expenseRepository.getExpensesStreamForGroup(group.id).first;
-        // We will filter for a "Shared Buy" category
-        allSharedBuys
-            .addAll(groupExpenses.where((e) => e.category == 'Shared Buy'));
-      }
+  // --- UPDATED: Renamed from _loadSharedBuysData and converted to real-time ---
+  void _listenToGroupsAndExpenses() {
+    isLoading.value = true;
+    _groupsSubscription?.cancel(); // Cancel any old group listener
 
-      allSharedBuys.sort((a, b) => b.date.compareTo(a.date));
-      sharedBuyExpenses.value = allSharedBuys;
+    _groupsSubscription = _groupRepository.getGroupsStream().listen(
+          (groupList) {
+        // --- ADDED: Real-time expense listening logic ---
+        _cancelExpenseSubscriptions(); // Cancel all old expense listeners
+        _sharedBuysByGroup
+            .clear(); // Clear the map (this will trigger _processAndSortSharedBuys)
 
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to load shared buys data: ${e.toString()}');
-    } finally {
-      isLoading.value = false;
+        if (groupList.isEmpty) {
+          isLoading.value = false;
+          _processAndSortSharedBuys(); // Ensure list is cleared
+          return; // No groups, nothing to listen to
+        }
+
+        // For each group, create a new expense listener
+        for (var group in groupList) {
+          // --- UPDATED: Fixed method name ---
+          final sub = _expenseRepository
+              .getExpensesStreamForGroup(group.id)
+              .listen(
+                (groupExpenses) {
+              // Filter for shared buys
+              final sharedBuys = groupExpenses
+                  .where((e) => e.category == 'Shared Buy')
+                  .toList();
+              // When expenses for this group update, update our map.
+              // This assignment automatically triggers the 'ever' listener.
+              _sharedBuysByGroup[group.id] = sharedBuys;
+            },
+            onError: (error) {
+              Get.snackbar(
+                  "Error", "Could not load shared buys for ${group.name}");
+            },
+          );
+
+          _expenseSubscriptions.add(sub); // Add new listener to our list
+        }
+        // --- End of added logic ---
+
+        isLoading.value = false;
+      },
+      onError: (error) {
+        isLoading.value = false;
+        Get.snackbar("Error", "Could not fetch your groups. Please try again.");
+      },
+    );
+  }
+
+  // --- ADDED: Helper to cancel all expense listeners ---
+  void _cancelExpenseSubscriptions() {
+    for (final sub in _expenseSubscriptions) {
+      sub.cancel();
     }
+    _expenseSubscriptions.clear();
+  }
+
+  // --- ADDED: Cancel all listeners on close ---
+  @override
+  void onClose() {
+    _groupsSubscription?.cancel();
+    _cancelExpenseSubscriptions();
+    super.onClose();
   }
 }

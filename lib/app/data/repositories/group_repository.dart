@@ -20,11 +20,13 @@ class GroupRepository {
 
   Stream<List<GroupModel>> getGroupsStream() {
     if (_uid == null) {
-      debugPrint("--- REPO TRACE: No user logged in for getGroupsStream. Returning empty stream.");
+      debugPrint(
+          "--- REPO TRACE: No user logged in for getGroupsStream. Returning empty stream.");
       return Stream.value([]);
     }
     return _firebaseProvider.getGroupsForUser(_uid!).map((snapshot) {
-      debugPrint("--- REPO TRACE: Fetched ${snapshot.docs.length} groups for user $_uid.");
+      debugPrint(
+          "--- REPO TRACE: Fetched ${snapshot.docs.length} groups for user $_uid.");
       return snapshot.docs.map((doc) => GroupModel.fromFirestore(doc)).toList();
     });
   }
@@ -32,7 +34,8 @@ class GroupRepository {
   Future<GroupModel?> getGroupById(String groupId) async {
     try {
       debugPrint("--- REPO TRACE: Attempting to fetch group with ID: $groupId");
-      final docSnapshot = await _firebaseProvider.groupsCollection.doc(groupId).get();
+      final docSnapshot =
+      await _firebaseProvider.groupsCollection.doc(groupId).get();
       if (docSnapshot.exists) {
         debugPrint("--- REPO TRACE: Found group with ID: $groupId");
         return GroupModel.fromFirestore(docSnapshot);
@@ -48,17 +51,20 @@ class GroupRepository {
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     debugPrint("--- REPO TRACE: Getting member stream for group: $groupId");
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
-      debugPrint("--- REPO TRACE: Stream snapshot for members received: ${snapshot.docs.length} docs.");
+      debugPrint(
+          "--- REPO TRACE: Stream snapshot for members received: ${snapshot.docs.length} docs.");
       return snapshot.docs.map((doc) => MemberModel.fromFirestore(doc)).toList();
     });
   }
 
   Future<List<UserModel>> getMembersDetails(List<String> memberIds) async {
     debugPrint("--- REPO TRACE: Inside getMembersDetails ---");
-    debugPrint("--- REPO TRACE: Attempting to fetch details for these IDs: $memberIds");
+    debugPrint(
+        "--- REPO TRACE: Attempting to fetch details for these IDs: $memberIds");
 
     if (memberIds.isEmpty) {
-      debugPrint("--- REPO TRACE: Provided memberIds list is empty. Returning empty list.");
+      debugPrint(
+          "--- REPO TRACE: Provided memberIds list is empty. Returning empty list.");
       return [];
     }
 
@@ -69,17 +75,28 @@ class GroupRepository {
           debugPrint("--- REPO TRACE: Skipping empty memberId in list.");
           continue;
         }
-        final docSnapshot = await _firebaseProvider.firestore.collection('users').doc(memberId).get();
+        final docSnapshot = await _firebaseProvider.firestore
+            .collection('users')
+            .doc(memberId)
+            .get();
         if (docSnapshot.exists) {
           memberDetails.add(UserModel.fromFirestore(docSnapshot));
-          debugPrint("--- REPO TRACE: Added user: ${memberDetails.last.nickname} (ID: $memberId)");
+          debugPrint(
+              "--- REPO TRACE: Added user: ${memberDetails.last.nickname} (ID: $memberId)");
         } else {
-          debugPrint("--- REPO TRACE: WARNING! No user document found for ID: $memberId. This indicates data inconsistency.");
-          memberDetails.add(UserModel(uid: memberId, email: 'missing@example.com', fullName: 'Missing User Data', nickname: 'Missing User'));
+          debugPrint(
+              "--- REPO TRACE: WARNING! No user document found for ID: $memberId. This indicates data inconsistency.");
+          memberDetails.add(UserModel(
+              uid: memberId,
+              email: 'missing@example.com',
+              fullName: 'Missing User Data',
+              nickname: 'Missing User'));
         }
       }
-      debugPrint("--- REPO TRACE: Successfully processed details for ${memberDetails.length} members.");
-      final names = memberDetails.map((m) => '${m.nickname} (${m.uid})').toList();
+      debugPrint(
+          "--- REPO TRACE: Successfully processed details for ${memberDetails.length} members.");
+      final names =
+      memberDetails.map((m) => '${m.nickname} (${m.uid})').toList();
       debugPrint("--- REPO TRACE: Final list of members and their IDs: $names");
       return memberDetails;
     } catch (e) {
@@ -91,19 +108,28 @@ class GroupRepository {
   Future<void> createGroup(String groupName, String groupType) async {
     final user = _auth.currentUser;
     if (user == null) {
-      debugPrint("--- REPO TRACE: User not logged in when trying to create group.");
+      debugPrint(
+          "--- REPO TRACE: User not logged in when trying to create group.");
       throw Exception("User not logged in");
     }
 
-    final userDocRef = _firebaseProvider.firestore.collection('users').doc(user.uid);
+    // --- THIS IS THE FIX ---
+    // The error in your screenshot was passing the 'user' object directly.
+    // The correct code passes 'user.uid', which is the String ID.
+    final userDocRef =
+    _firebaseProvider.firestore.collection('users').doc(user.uid);
+    // -----------------------
+
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    final newMemberRef = _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
+    final newMemberRef =
+    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
     final userDocSnapshot = await userDocRef.get();
     String userName;
 
     if (!userDocSnapshot.exists) {
-      debugPrint("--- REPO TRACE: User doc not found during group creation. Self-healing user profile.");
+      debugPrint(
+          "--- REPO TRACE: User doc not found during group creation. Self-healing user profile.");
       final fullName = user.displayName ?? user.email ?? 'New User';
       final selfHealedUser = UserModel(
         uid: user.uid,
@@ -116,7 +142,8 @@ class GroupRepository {
       userName = selfHealedUser.nickname;
     } else {
       final data = userDocSnapshot.data();
-      userName = data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
+      userName =
+          data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
     }
 
     final newGroup = GroupModel(
@@ -143,14 +170,17 @@ class GroupRepository {
     }
 
     await batch.commit();
-    debugPrint("--- REPO TRACE: Group '$groupName' created successfully with ID: ${newGroupRef.id}");
+    debugPrint(
+        "--- REPO TRACE: Group '$groupName' created successfully with ID: ${newGroupRef.id}");
   }
 
   // --- NEW METHOD FOR PHASE 3, STEP 5.1 ---
   /// Updates specific settings fields on a group document.
-  Future<void> updateGroupSettings(String groupId, Map<String, dynamic> settings) async {
+  Future<void> updateGroupSettings(
+      String groupId, Map<String, dynamic> settings) async {
     try {
-      debugPrint("--- REPO TRACE: Updating settings for group ID: $groupId with fields: ${settings.keys}");
+      debugPrint(
+          "--- REPO TRACE: Updating settings for group ID: $groupId with fields: ${settings.keys}");
       await _firebaseProvider.groupsCollection.doc(groupId).update(settings);
       debugPrint("--- REPO TRACE: Group settings updated successfully.");
     } catch (e) {
@@ -165,7 +195,8 @@ class GroupRepository {
     required String groupId,
     required String email,
   }) async {
-    debugPrint("--- REPO TRACE: Adding member by email '$email' to group '$groupId'");
+    debugPrint(
+        "--- REPO TRACE: Adding member by email '$email' to group '$groupId'");
     final userQuery = await _firebaseProvider.findUserByEmail(email);
     if (userQuery.docs.isEmpty) {
       debugPrint("--- REPO TRACE: User with email '$email' not found.");
@@ -175,11 +206,14 @@ class GroupRepository {
     final userDoc = userQuery.docs.first;
     final userId = userDoc.id;
     final userData = userDoc.data();
-    final userName = userData['nickname'] ?? userData['fullName'] ?? 'New Member';
+    final userName =
+        userData['nickname'] ?? userData['fullName'] ?? 'New Member';
 
-    final isAlreadyMember = await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
+    final isAlreadyMember =
+    await _firebaseProvider.isUserMemberOfGroup(groupId, userId);
     if (isAlreadyMember) {
-      debugPrint("--- REPO TRACE: '$userName' is already a member of group '$groupId'.");
+      debugPrint(
+          "--- REPO TRACE: '$userName' is already a member of group '$groupId'.");
       throw '"$userName" is already in this group.';
     }
 
@@ -201,7 +235,8 @@ class GroupRepository {
     // batch.update(userRef, {'groups.$groupId': true});
 
     await batch.commit();
-    debugPrint("--- REPO TRACE: '$userName' (ID: $userId) successfully added to group '$groupId' by email.");
+    debugPrint(
+        "--- REPO TRACE: '$userName' (ID: $userId) successfully added to group '$groupId' by email.");
     return '"$userName" was successfully added to the group!';
   }
 
@@ -209,9 +244,11 @@ class GroupRepository {
     required String groupId,
     required String name,
   }) async {
-    debugPrint("--- REPO TRACE: Adding placeholder member '$name' to group '$groupId'");
+    debugPrint(
+        "--- REPO TRACE: Adding placeholder member '$name' to group '$groupId'");
     final newMemberRef = _firebaseProvider.membersCollection(groupId).doc();
-    final newMember = MemberModel(id: newMemberRef.id, name: name, isPlaceholder: true);
+    final newMember =
+    MemberModel(id: newMemberRef.id, name: name, isPlaceholder: true);
 
     final batch = _firebaseProvider.firestore.batch();
     final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
@@ -222,7 +259,8 @@ class GroupRepository {
     });
 
     await batch.commit();
-    debugPrint("--- REPO TRACE: Placeholder member '$name' (ID: ${newMember.id}) successfully added to group '$groupId'.");
+    debugPrint(
+        "--- REPO TRACE: Placeholder member '$name' (ID: ${newMember.id}) successfully added to group '$groupId'.");
     return '"$name" was successfully added as a placeholder!';
   }
 
@@ -232,11 +270,14 @@ class GroupRepository {
     bool isGuest = false,
   }) async {
     try {
-      debugPrint("--- REPO TRACE: Removing member '$memberId' from group '$groupId'");
+      debugPrint(
+          "--- REPO TRACE: Removing member '$memberId' from group '$groupId'");
       final batch = _firebaseProvider.firestore.batch();
       final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
-      final memberRef = _firebaseProvider.membersCollection(groupId).doc(memberId);
-      final userRef = _firebaseProvider.firestore.collection('users').doc(memberId);
+      final memberRef =
+      _firebaseProvider.membersCollection(groupId).doc(memberId);
+      final userRef =
+      _firebaseProvider.firestore.collection('users').doc(memberId);
 
       batch.update(groupRef, {
         'memberIds': FieldValue.arrayRemove([memberId])
@@ -249,14 +290,17 @@ class GroupRepository {
         if (userSnapshot.exists) {
           batch.update(userRef, {'groups.$groupId': FieldValue.delete()});
         } else {
-          debugPrint("--- REPO TRACE: User document for member '$memberId' not found, skipping groups update.");
+          debugPrint(
+              "--- REPO TRACE: User document for member '$memberId' not found, skipping groups update.");
         }
       }
 
       await batch.commit();
-      debugPrint("--- REPO TRACE: Member '$memberId' successfully removed from group '$groupId'.");
+      debugPrint(
+          "--- REPO TRACE: Member '$memberId' successfully removed from group '$groupId'.");
     } catch (e) {
-      debugPrint("!!!! ERROR removing member '$memberId' from group '$groupId': $e");
+      debugPrint(
+          "!!!! ERROR removing member '$memberId' from group '$groupId': $e");
       throw Exception('Failed to remove member.');
     }
   }
@@ -266,8 +310,11 @@ class GroupRepository {
     required String newName,
   }) async {
     try {
-      debugPrint("--- REPO TRACE: Updating group name for '$groupId' to '$newName'.");
-      await _firebaseProvider.groupsCollection.doc(groupId).update({'name': newName});
+      debugPrint(
+          "--- REPO TRACE: Updating group name for '$groupId' to '$newName'.");
+      await _firebaseProvider.groupsCollection
+          .doc(groupId)
+          .update({'name': newName});
       debugPrint("--- REPO TRACE: Group name updated successfully.");
     } catch (e) {
       debugPrint("!!!! ERROR updating group name for '$groupId': $e");
@@ -281,8 +328,12 @@ class GroupRepository {
     required String newRole,
   }) async {
     try {
-      debugPrint("--- REPO TRACE: Updating role for member '$memberId' in group '$groupId' to '$newRole'.");
-      await _firebaseProvider.membersCollection(groupId).doc(memberId).update({'role': newRole});
+      debugPrint(
+          "--- REPO TRACE: Updating role for member '$memberId' in group '$groupId' to '$newRole'.");
+      await _firebaseProvider
+          .membersCollection(groupId)
+          .doc(memberId)
+          .update({'role': newRole});
       debugPrint("--- REPO TRACE: Member role updated successfully.");
     } catch (e) {
       debugPrint("!!!! ERROR updating member role for '$memberId': $e");
