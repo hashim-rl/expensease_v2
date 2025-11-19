@@ -12,23 +12,24 @@ class GroupDashboardController extends GetxController {
   final GroupRepository _groupRepository = Get.find<GroupRepository>();
 
   final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+  // This group object will now be updated by a stream
   final Rx<GroupModel?> group = Rx<GroupModel?>(null);
   final members = <UserModel>[].obs;
 
   final expenses = <ExpenseModel>[].obs;
   final memberBalances = <String, double>{}.obs;
   final isLoading = true.obs;
+
   StreamSubscription? _expenseSubscription;
+  StreamSubscription? _groupSubscription; // NEW: For the group stream
 
   final currentUserNetBalance = 0.0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // --- THIS IS THE FINAL FIX ---
-    // This solves the race condition where onInit runs before Get.arguments is ready.
-    // By delaying the initialization by a single frame,we guarantee that the
-    // navigation is complete and the group data is available.
+    // Delay init to ensure Get.arguments is ready
     Future.delayed(Duration.zero, () {
       _initializeDashboard();
     });
@@ -41,30 +42,55 @@ class GroupDashboardController extends GetxController {
       Get.snackbar("Error", "Could not load group data. Please go back.");
       return;
     }
-    group.value = groupArg;
-    _fetchMemberDetailsAndExpenses();
-  }
-  // --- END OF FIX ---
 
-  Future<void> _fetchMemberDetailsAndExpenses() async {
-    isLoading.value = true;
+    // Start listening to the group stream
+    _groupSubscription?.cancel();
+    _groupSubscription = _groupRepository.getGroupStream(groupArg.id).listen(
+            (updatedGroup) {
+          if (updatedGroup != null) {
+            final bool needsMemberRefresh = group.value == null ||
+                updatedGroup.memberIds.length != group.value!.memberIds.length;
+
+            group.value = updatedGroup;
+
+            // Only refetch members if the member list has changed
+            if (needsMemberRefresh) {
+              _fetchMemberDetails();
+            }
+          } else {
+            // Handle group deletion or error
+            Get.back(); // Go back if group is deleted
+            Get.snackbar("Error", "Group not found.");
+          }
+        }, onError: (e) {
+      isLoading.value = false;
+      Get.snackbar("Error", "Failed to load group details.");
+    });
+
+    // Subscribe to expenses (can be done once)
+    _subscribeToExpenses(groupArg.id);
+  }
+
+  Future<void> _fetchMemberDetails() async {
     if (group.value != null) {
+      // Fetch details based on the (now-live) memberIds list
       members.value =
       await _groupRepository.getMembersDetails(group.value!.memberIds);
-      _subscribeToExpenses();
-    } else {
-      isLoading.value = false;
+
+      // We process expense data *after* members are fetched
+      // to ensure balances are calculated correctly
+      _processExpenseData();
     }
   }
 
-  void _subscribeToExpenses() {
+  void _subscribeToExpenses(String groupId) {
     _expenseSubscription?.cancel();
     _expenseSubscription = _expenseRepository
-        .getExpensesStreamForGroup(group.value!.id)
+        .getExpensesStreamForGroup(groupId)
         .listen((expenseList) {
       expenses.value = expenseList;
-      _processExpenseData();
-      isLoading.value = false;
+      _processExpenseData(); // Process data when expenses change
+      isLoading.value = false; // Set loading false after first load
     }, onError: (error) {
       isLoading.value = false;
       Get.snackbar("Error", "Failed to load expenses.");
@@ -72,7 +98,10 @@ class GroupDashboardController extends GetxController {
   }
 
   void _processExpenseData() {
-    if (group.value == null || currentUserId == null) return;
+    // Don't process balances until members are loaded
+    if (group.value == null || currentUserId == null || members.isEmpty) {
+      return;
+    }
 
     final newBalances = {for (var member in members) member.uid: 0.0};
 
@@ -97,10 +126,10 @@ class GroupDashboardController extends GetxController {
   String getMemberName(String uid) {
     final member = members.firstWhere((m) => m.uid == uid,
         orElse: () => UserModel(
-          uid: '',
+          uid: uid, // Use the UID for a better placeholder
           email: '',
           fullName: 'Unknown',
-          nickname: 'Unknown',
+          nickname: 'Unknown User', // More specific placeholder
         ));
     return member.nickname;
   }
@@ -108,6 +137,7 @@ class GroupDashboardController extends GetxController {
   @override
   void onClose() {
     _expenseSubscription?.cancel();
+    _groupSubscription?.cancel(); // NEW: Cancel group sub
     super.onClose();
   }
 }

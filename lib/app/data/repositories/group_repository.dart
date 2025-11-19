@@ -48,6 +48,20 @@ class GroupRepository {
     }
   }
 
+  // --- THIS IS THE NEW METHOD YOU ASKED FOR ---
+  Stream<GroupModel?> getGroupStream(String groupId) {
+    if (groupId.isEmpty) return Stream.value(null);
+    debugPrint("--- REPO TRACE: Subscribing to group stream for: $groupId");
+    return _firebaseProvider.groupsCollection.doc(groupId).snapshots().map((doc) {
+      if (doc.exists) {
+        return GroupModel.fromFirestore(doc);
+      }
+      debugPrint("--- REPO TRACE: Group $groupId not found in stream.");
+      return null;
+    });
+  }
+  // --- END OF NEW METHOD ---
+
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     debugPrint("--- REPO TRACE: Getting member stream for group: $groupId");
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
