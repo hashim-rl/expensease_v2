@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:expensease/app/modules/expenses/controllers/expense_controller.dart';
 import 'package:expensease/app/data/models/user_model.dart';
-import 'package:intl/intl.dart'; // Import for date formatting
-import 'package:expensease/app/shared/theme/app_colors.dart'; // <-- NEW IMPORT
-import 'package:expensease/app/shared/theme/text_styles.dart'; // <-- NEW IMPORT
+import 'package:intl/intl.dart';
+import 'package:expensease/app/shared/theme/app_colors.dart';
+import 'package:expensease/app/shared/theme/text_styles.dart';
 
 class AddExpenseView extends GetView<ExpenseController> {
   const AddExpenseView({super.key});
@@ -16,7 +16,6 @@ class AddExpenseView extends GetView<ExpenseController> {
         title: const Text('Add Expense'),
         centerTitle: true,
         actions: [
-          // Use the main addExpense method, which now handles recurring submission
           IconButton(
             onPressed: controller.addExpense,
             icon: const Icon(Icons.check),
@@ -24,7 +23,6 @@ class AddExpenseView extends GetView<ExpenseController> {
         ],
       ),
       body: Obx(() {
-        // --- UI FIXES for Loading/Empty State ---
         if (controller.isLoading.value) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -39,7 +37,7 @@ class AddExpenseView extends GetView<ExpenseController> {
                   Icon(Icons.people_alt_outlined, size: 50, color: Colors.grey),
                   SizedBox(height: 10),
                   Text(
-                    'No members found in this group. Please add members to the group first.',
+                    'No members found in this group. Please add members first.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 16, color: Colors.grey),
                   ),
@@ -48,37 +46,35 @@ class AddExpenseView extends GetView<ExpenseController> {
             ),
           );
         }
-        // --- END OF UI FIXES ---
 
         return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
-            key: controller
-                .formKey, // Assuming a FormKey exists in the controller
+            key: controller.formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // --- DESCRIPTION ---
                 TextFormField(
                   controller: controller.descriptionController,
                   decoration: const InputDecoration(
                     labelText: 'Description',
                     border: OutlineInputBorder(),
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Description is required';
-                    }
-                    return null;
-                  },
+                  validator: (value) =>
+                  (value == null || value.isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 16.0),
+
+                // --- AMOUNT ---
                 TextFormField(
                   controller: controller.amountController,
                   decoration: const InputDecoration(
-                    labelText: 'Amount',
+                    labelText: 'Total Amount',
                     border: OutlineInputBorder(),
+                    prefixText: '\$ ', // Placeholder currency symbol
                   ),
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   validator: (value) {
                     if (value == null || double.tryParse(value) == null) {
                       return 'Valid amount is required';
@@ -87,6 +83,8 @@ class AddExpenseView extends GetView<ExpenseController> {
                   },
                 ),
                 const SizedBox(height: 16.0),
+
+                // --- DATE ---
                 TextFormField(
                   controller: controller.dateController,
                   decoration: const InputDecoration(
@@ -98,6 +96,8 @@ class AddExpenseView extends GetView<ExpenseController> {
                   onTap: controller.selectDate,
                 ),
                 const SizedBox(height: 16.0),
+
+                // --- PAID BY ---
                 Obx(() => DropdownButtonFormField<String>(
                   value: controller.selectedPayerUid.value,
                   decoration: const InputDecoration(
@@ -113,34 +113,32 @@ class AddExpenseView extends GetView<ExpenseController> {
                   onChanged: (String? newValue) {
                     controller.selectedPayerUid.value = newValue;
                   },
-                  validator: (value) {
-                    if (value == null) return 'Please select who paid';
-                    return null;
-                  },
+                  validator: (value) =>
+                  value == null ? 'Who paid?' : null,
                 )),
                 const SizedBox(height: 24.0),
 
-                // --- NEW SPLIT METHOD DROPDOWN ---
+                // --- SPLIT METHOD SELECTION ---
                 _buildSplitMethodDropdown(),
 
-                const SizedBox(height: 8.0),
+                const SizedBox(height: 16.0),
 
-                // --- CONDITIONALLY SHOW SPLIT UI ---
+                // --- DYNAMIC SPLIT UI ---
                 Obx(() {
-                  // Show the participant list for Equal and Shares
-                  if (controller.splitMethod.value == 'Split Equally' ||
-                      controller.splitMethod.value == 'Split by Shares') {
+                  String method = controller.splitMethod.value;
+                  if (method == 'Split Equally' || method == 'Split by Shares') {
                     return _buildSplitBySharesUI();
-                  }
-                  // Show an info box for Proportional
-                  if (controller.splitMethod.value == 'Proportional') {
+                  } else if (method == 'Unequally') {
+                    return _buildUnequalSplitUI();
+                  } else if (method == 'Proportional') {
                     return _buildProportionalSplitInfo();
                   }
                   return const SizedBox.shrink();
                 }),
-                // --- END OF CONDITIONAL UI ---
 
                 const SizedBox(height: 24.0),
+
+                // --- CATEGORY ---
                 DropdownButtonFormField<String>(
                   value: controller.selectedCategory.value,
                   decoration: const InputDecoration(
@@ -148,17 +146,8 @@ class AddExpenseView extends GetView<ExpenseController> {
                     border: OutlineInputBorder(),
                   ),
                   items: <String>[
-                    'General',
-                    'Groceries',
-                    'Transport',
-                    'Utilities',
-                    'Rent',
-                    'Entertainment',
-                    'Dining Out',
-                    'Meal',
-                    'Shared Buy',
-                    'Bill',
-                    'Other',
+                    'General', 'Groceries', 'Transport', 'Utilities', 'Rent',
+                    'Entertainment', 'Dining Out', 'Meal', 'Shared Buy', 'Bill', 'Other',
                   ].map<DropdownMenuItem<String>>((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
@@ -169,14 +158,17 @@ class AddExpenseView extends GetView<ExpenseController> {
                     controller.selectedCategory.value = newValue!;
                   },
                 ),
+
+                // --- CURRENCY (TRIP MODE ONLY) ---
                 if (controller.group.type == 'Trip')
                   Padding(
                     padding: const EdgeInsets.only(top: 16.0),
                     child: DropdownButtonFormField<String>(
                       value: controller.selectedCurrency.value,
                       decoration: const InputDecoration(
-                        labelText: 'Currency',
+                        labelText: 'Receipt Currency',
                         border: OutlineInputBorder(),
+                        helperText: "Auto-converts to group's currency",
                       ),
                       items: <String>['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
                           .map<DropdownMenuItem<String>>((String value) {
@@ -191,14 +183,12 @@ class AddExpenseView extends GetView<ExpenseController> {
                     ),
                   ),
 
-                // --- NEW: RECURRING EXPENSE FIELDS ---
+                // --- RECURRING ---
                 const SizedBox(height: 16.0),
                 Obx(() => SwitchListTile(
-                  title: const Text('Recurring Expense'),
+                  title: const Text('Recurring Expense?'),
                   value: controller.isRecurring.value,
-                  onChanged: (bool value) {
-                    controller.isRecurring.value = value;
-                  },
+                  onChanged: (val) => controller.isRecurring.value = val,
                 )),
 
                 Obx(() => Visibility(
@@ -212,75 +202,39 @@ class AddExpenseView extends GetView<ExpenseController> {
                           labelText: 'Frequency',
                           border: OutlineInputBorder(),
                         ),
-                        items: [
-                          'Monthly',
-                          'Weekly',
-                          'Quarterly',
-                          'Yearly'
-                        ].map<DropdownMenuItem<String>>((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          controller.selectedFrequency.value =
-                              newValue ?? 'Monthly';
-                        },
-                        validator: (value) {
-                          if (controller.isRecurring.value &&
-                              value == null) {
-                            return 'Frequency is required';
-                          }
-                          return null;
-                        },
+                        items: ['Monthly', 'Weekly', 'Quarterly', 'Yearly']
+                            .map((val) => DropdownMenuItem(value: val, child: Text(val)))
+                            .toList(),
+                        onChanged: (val) =>
+                        controller.selectedFrequency.value = val ?? 'Monthly',
                       ),
                       const SizedBox(height: 16.0),
                       TextFormField(
-                        // Assumes a controller exists for this, or we display the selected date
                         decoration: InputDecoration(
                           labelText: 'Next Due Date',
-                          hintText:
-                          controller.selectedNextDueDate.value != null
-                              ? DateFormat.yMMMd().format(
-                              controller.selectedNextDueDate.value!)
+                          hintText: controller.selectedNextDueDate.value != null
+                              ? DateFormat.yMMMd().format(controller.selectedNextDueDate.value!)
                               : 'Select date',
                           border: const OutlineInputBorder(),
                           suffixIcon: const Icon(Icons.calendar_today),
                         ),
                         readOnly: true,
-                        onTap:
-                        controller.selectNextDueDate, // Assumes this method exists
-                        validator: (value) {
-                          if (controller.isRecurring.value &&
-                              controller.selectedNextDueDate.value ==
-                                  null) {
-                            return 'Next due date is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 16.0),
-                      TextFormField(
-                        controller: controller
-                            .whatsappNumberController, // Assumes this controller exists
-                        decoration: const InputDecoration(
-                          labelText: 'WhatsApp Reminder Number (Optional)',
-                          hintText: '+923... (Premium Feature)',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.phone,
+                        onTap: controller.selectNextDueDate,
                       ),
                     ],
                   ),
                 )),
-                // --- END OF NEW FIELDS ---
 
                 const SizedBox(height: 24.0),
-                Center(
+                SizedBox(
+                  width: double.infinity,
                   child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: AppColors.primaryBlue,
+                    ),
                     onPressed: controller.addExpense,
-                    child: const Text('Add Expense'),
+                    child: const Text('Add Expense', style: TextStyle(fontSize: 18, color: Colors.white)),
                   ),
                 ),
               ],
@@ -291,20 +245,21 @@ class AddExpenseView extends GetView<ExpenseController> {
     );
   }
 
-  // --- NEW WIDGET for Split Method Dropdown ---
+  // ---------------------------------------------------------------------------
+  //                                  WIDGETS
+  // ---------------------------------------------------------------------------
+
   Widget _buildSplitMethodDropdown() {
     return Obx(() {
-      // Build the list of available split methods
-      final List<String> methods = ['Split Equally', 'Split by Shares'];
-      // Conditionally add 'Proportional' if a ratio is set for the group
+      final List<String> methods = ['Split Equally', 'Split by Shares', 'Unequally'];
+
       if (controller.group.incomeSplitRatio != null &&
           controller.group.incomeSplitRatio!.isNotEmpty) {
         methods.add('Proportional');
       }
 
-      // Ensure the selected value is valid, otherwise default to the first
-      final String currentValue = controller.splitMethod.value;
-      if (!methods.contains(currentValue)) {
+      // Safety check
+      if (!methods.contains(controller.splitMethod.value)) {
         controller.splitMethod.value = methods.first;
       }
 
@@ -321,15 +276,95 @@ class AddExpenseView extends GetView<ExpenseController> {
           );
         }).toList(),
         onChanged: (String? newValue) {
-          if (newValue != null) {
-            controller.splitMethod.value = newValue;
-          }
+          if (newValue != null) controller.splitMethod.value = newValue;
         },
       );
     });
   }
 
-  // --- NEW WIDGET for Proportional Split Info ---
+  // --- NEW: UI for Unequal Splits ---
+  Widget _buildUnequalSplitUI() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Remaining Amount Indicator
+        Obx(() {
+          final remaining = controller.remainingAmount.value;
+          final isBalanced = remaining.abs() < 0.01;
+          return Container(
+            padding: const EdgeInsets.all(12),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: isBalanced ? AppColors.green.withOpacity(0.1) : AppColors.red.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: isBalanced ? AppColors.green : AppColors.red,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isBalanced ? Icons.check_circle : Icons.warning_amber_rounded,
+                  color: isBalanced ? AppColors.green : AppColors.red,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  isBalanced
+                      ? 'Perfectly Balanced ($remaining)'
+                      : 'Remaining to assign: ${remaining.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: isBalanced ? AppColors.green : AppColors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: controller.members.length,
+          itemBuilder: (context, index) {
+            final member = controller.members[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                children: [
+                  // Avatar or Name
+                  Expanded(
+                    flex: 2,
+                    child: Text(
+                      member.nickname,
+                      style: AppTextStyles.bodyBold,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  // Input Field
+                  Expanded(
+                    flex: 3,
+                    child: TextFormField(
+                      controller: controller.unequalSplitControllers[member.uid],
+                      decoration: const InputDecoration(
+                        prefixText: '\$',
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(),
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   Widget _buildProportionalSplitInfo() {
     return Card(
       elevation: 0,
@@ -343,7 +378,7 @@ class AddExpenseView extends GetView<ExpenseController> {
             const SizedBox(width: 16),
             Expanded(
               child: Text(
-                'The expense will be split proportionally based on the custom ratios set for this group.',
+                'Split using saved group ratios.',
                 style: AppTextStyles.bodyText1,
               ),
             ),
@@ -353,7 +388,6 @@ class AddExpenseView extends GetView<ExpenseController> {
     );
   }
 
-  // --- REFACTORED WIDGET for Share UI ---
   Widget _buildSplitBySharesUI() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -362,10 +396,9 @@ class AddExpenseView extends GetView<ExpenseController> {
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(
             controller.splitMethod.value == 'Split Equally'
-                ? 'Select participants to split equally:'
-                : 'Adjust shares for each participant:',
-            style: AppTextStyles.bodyText1
-                .copyWith(color: AppColors.textSecondary),
+                ? 'Select participants:'
+                : 'Adjust shares:',
+            style: AppTextStyles.bodyText1.copyWith(color: AppColors.textSecondary),
           ),
         ),
         ListView.builder(
@@ -376,17 +409,18 @@ class AddExpenseView extends GetView<ExpenseController> {
             final member = controller.members[index];
             return Card(
               elevation: 0,
-              color: Colors.white,
+              color: Colors.grey[50], // Subtle background
               margin: const EdgeInsets.only(bottom: 8.0),
               shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: Colors.grey.shade200)
+              ),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
+                padding: const EdgeInsets.all(8.0),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(left: 16.0),
+                    Expanded(
                       child: Text(
                         member.nickname,
                         style: AppTextStyles.bodyBold,
@@ -395,18 +429,19 @@ class AddExpenseView extends GetView<ExpenseController> {
                     Row(
                       children: [
                         IconButton(
-                          icon: const Icon(Icons.remove_circle_outline,
-                              color: AppColors.red),
+                          icon: const Icon(Icons.remove_circle_outline, color: AppColors.red),
                           onPressed: () => controller.removeShare(member.uid),
                         ),
-                        Obx(() => Text(
-                          '${controller.participantShares[member.uid] ?? 0}',
-                          style: AppTextStyles.title
-                              .copyWith(fontSize: 18),
+                        Obx(() => SizedBox(
+                          width: 30,
+                          child: Text(
+                            '${controller.participantShares[member.uid] ?? 0}',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.title.copyWith(fontSize: 18),
+                          ),
                         )),
                         IconButton(
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: AppColors.green),
+                          icon: const Icon(Icons.add_circle_outline, color: AppColors.green),
                           onPressed: () => controller.addShare(member.uid),
                         ),
                       ],

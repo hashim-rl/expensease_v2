@@ -1,94 +1,95 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 import 'package:expensease/app/modules/settings/controllers/notifications_controller.dart';
-import 'package:expensease/app/shared/widgets/list_shimmer_loader.dart';
+import 'package:expensease/app/shared/theme/app_colors.dart';
+import 'package:expensease/app/shared/theme/text_styles.dart';
+import 'package:expensease/app/shared/widgets/empty_state_widget.dart';
+import 'package:intl/intl.dart'; // For date formatting
 
 class NotificationsView extends GetView<NotificationsController> {
   const NotificationsView({super.key});
 
-  // Helper to determine icon and color based on notification type
-  Map<String, dynamic> _getIconData(String type) {
-    switch (type) {
-      case 'expense_added':
-        return {'icon': Icons.receipt_long, 'color': Colors.orange};
-      case 'payment_received':
-        return {'icon': Icons.credit_card, 'color': Colors.green};
-      case 'payment_sent':
-        return {'icon': Icons.payment, 'color': Colors.redAccent};
-      case 'report_ready':
-        return {'icon': Icons.analytics, 'color': Colors.blue};
-      default:
-        return {'icon': Icons.notifications, 'color': Colors.grey};
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1E1E2C),
       appBar: AppBar(
         title: const Text('Notifications'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: Colors.white,
         actions: [
-          Obx(() => controller.notifications.isNotEmpty
-              ? IconButton(
-            icon: const Icon(Icons.done_all, color: Colors.white),
-            tooltip: 'Clear All Notifications',
-            onPressed: controller.clearAllNotifications,
-          )
-              : const SizedBox.shrink()),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_outlined),
+            tooltip: "Clear All",
+            onPressed: () {
+              if (controller.notifications.isNotEmpty) {
+                _showClearConfirmation();
+              }
+            },
+          ),
         ],
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
-          return const ListShimmerLoader();
+          return const Center(child: CircularProgressIndicator());
         }
+
         if (controller.notifications.isEmpty) {
-          return const Center(
-            child: Text("You have no unread notifications.", style: TextStyle(color: Colors.white70)),
+          return const EmptyStateWidget(
+            icon: Icons.notifications_off_outlined,
+            title: 'No Notifications',
+            subtitle: 'You are all caught up!',
           );
         }
-        return ListView.builder(
-          padding: const EdgeInsets.all(16.0),
+
+        return ListView.separated(
+          padding: const EdgeInsets.all(16),
           itemCount: controller.notifications.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
           itemBuilder: (context, index) {
             final notification = controller.notifications[index];
-            final iconData = _getIconData(notification.type);
+            final isRead = notification.isRead;
 
             return Dismissible(
               key: Key(notification.id),
               direction: DismissDirection.endToStart,
               background: Container(
                 alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 20.0),
-                color: Colors.red,
-                child: const Icon(Icons.delete_forever, color: Colors.white),
+                padding: const EdgeInsets.only(right: 20),
+                color: AppColors.red,
+                child: const Icon(Icons.delete, color: Colors.white),
               ),
               onDismissed: (direction) {
-                // Calls the controller to mark it as read/deleted in Firestore
-                controller.markNotificationAsRead(notification.id);
+                // Optionally implement delete-one logic here
+                // controller.deleteNotification(notification.id);
               },
-              child: Card(
-                margin: const EdgeInsets.only(bottom: 12),
-                color: const Color(0xFF2D2D44),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Container(
+                color: isRead ? Colors.transparent : AppColors.primaryBlue.withOpacity(0.05),
                 child: ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: iconData['color']?.withOpacity(0.2) ?? Colors.grey.shade700,
-                    child: Icon(iconData['icon'], color: iconData['color'], size: 20),
+                    backgroundColor: isRead ? Colors.grey.shade200 : AppColors.primaryLight,
+                    child: Icon(
+                      _getIconForType(notification.type),
+                      color: isRead ? Colors.grey : AppColors.primaryBlue,
+                      size: 20,
+                    ),
                   ),
-                  title: Text(notification.title, style: const TextStyle(color: Colors.white)),
-                  subtitle: Text(
-                    // Format the DateTime timestamp
-                    DateFormat('MMM d, h:mm a').format(notification.timestamp),
-                    style: const TextStyle(color: Colors.white54),
+                  title: Text(
+                    notification.title,
+                    style: isRead
+                        ? AppTextStyles.bodyText1
+                        : AppTextStyles.bodyBold,
                   ),
-                  onTap: () {
-                    // TODO: Implement navigation logic based on notification.type
-                  },
+                  subtitle: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(notification.body),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatTime(notification.createdAt),
+                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  onTap: () => controller.markAsRead(notification.id),
                 ),
               ),
             );
@@ -96,5 +97,42 @@ class NotificationsView extends GetView<NotificationsController> {
         );
       }),
     );
+  }
+
+  void _showClearConfirmation() {
+    Get.defaultDialog(
+      title: "Clear Notifications",
+      middleText: "Are you sure you want to delete all notifications?",
+      textConfirm: "Clear All",
+      textCancel: "Cancel",
+      confirmTextColor: Colors.white,
+      buttonColor: AppColors.red,
+      onConfirm: () {
+        controller.clearAll();
+      },
+    );
+  }
+
+  IconData _getIconForType(String type) {
+    switch (type) {
+      case 'expense': return Icons.receipt_long;
+      case 'group': return Icons.group_add;
+      case 'settlement': return Icons.handshake;
+      case 'alert': return Icons.warning_amber;
+      default: return Icons.notifications;
+    }
+  }
+
+  String _formatTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return DateFormat.MMMd().format(time);
+    }
   }
 }

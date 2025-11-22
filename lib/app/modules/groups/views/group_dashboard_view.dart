@@ -10,20 +10,33 @@ import 'package:expensease/app/shared/theme/text_styles.dart';
 class GroupDashboardView extends GetView<GroupDashboardController> {
   const GroupDashboardView({super.key});
 
+  // --- NEW: Helper for Currency Formatting ---
+  NumberFormat _getCurrencyFormat() {
+    final currencyCode = controller.getGroupCurrency();
+    // Simple mapping for common symbols
+    String symbol = '\$';
+    if (currencyCode == 'EUR') symbol = '€';
+    else if (currencyCode == 'GBP') symbol = '£';
+    else if (currencyCode == 'JPY') symbol = '¥';
+    else if (currencyCode == 'INR') symbol = '₹';
+
+    return NumberFormat.currency(symbol: symbol, decimalDigits: 2);
+  }
+  // -------------------------------------------
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Obx(
             () {
-          // Add a null check here to prevent crashes while group data is loading
           if (controller.group.value == null) {
             if (controller.isLoading.value) {
               return const Center(child: CircularProgressIndicator());
             }
             return const Center(child: Text("Error: Group data is missing."));
           }
-          // The rest of your UI builds here
+
           return DefaultTabController(
             length: 2,
             child: NestedScrollView(
@@ -168,7 +181,9 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
   }
 
   Widget _buildBalanceCard() {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    // --- USE DYNAMIC CURRENCY ---
+    final currencyFormat = _getCurrencyFormat();
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       elevation: 0,
@@ -211,9 +226,14 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
                   onPressed: owes || isOwed
                       ? () {
                     if (controller.group.value != null) {
+                      // NEW
                       Get.toNamed(
                         Routes.SETTLE_UP,
-                        arguments: controller.group.value,
+                        arguments: {
+                          'group': controller.group.value,
+                          'members': controller.members.toList(),
+                          'balances': controller.memberBalances, // Pass the calculated balances
+                        },
                       );
                     }
                   }
@@ -237,7 +257,9 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
   }
 
   Widget _buildExpenseList() {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    // --- USE DYNAMIC CURRENCY ---
+    final currencyFormat = _getCurrencyFormat();
+
     return Obx(() {
       if (controller.expenses.isEmpty) {
         return const EmptyStateWidget(
@@ -280,7 +302,7 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
                     currencyFormat.format(expense.totalAmount),
                     style: AppTextStyles.bodyBold,
                   ),
-                  if (userShare > 0)
+                  if (userShare > 0.01) // Hide if share is effectively 0
                     Text(
                       'You owe ${currencyFormat.format(userShare)}',
                       style:
@@ -298,7 +320,9 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
   }
 
   Widget _buildBalancesView() {
-    final currencyFormat = NumberFormat.currency(symbol: '\$');
+    // --- USE DYNAMIC CURRENCY ---
+    final currencyFormat = _getCurrencyFormat();
+
     return Obx(() {
       final balances = controller.memberBalances.entries.toList();
       return ListView.builder(
@@ -308,6 +332,9 @@ class GroupDashboardView extends GetView<GroupDashboardController> {
           final entry = balances[index];
           final memberName = controller.getMemberName(entry.key);
           final balance = entry.value;
+
+          // Skip zero balances to keep UI clean
+          if (balance.abs() < 0.01) return const SizedBox.shrink();
 
           final color = balance >= 0 ? AppColors.green : AppColors.red;
           final text = balance >= 0

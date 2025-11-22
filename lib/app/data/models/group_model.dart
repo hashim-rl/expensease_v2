@@ -5,6 +5,7 @@ class GroupModel {
   String name;
   final String? coverPhotoUrl;
   final String type;
+  final String? currency; // --- NEW: Essential for Multi-Currency/Travel Mode ---
   final List<String> memberIds;
   late final Map<String, double>? incomeSplitRatio;
   final Timestamp createdAt;
@@ -15,6 +16,7 @@ class GroupModel {
     required this.name,
     this.coverPhotoUrl,
     required this.type,
+    this.currency, // --- Add to Constructor ---
     required this.memberIds,
     this.incomeSplitRatio,
     required this.createdAt,
@@ -35,7 +37,10 @@ class GroupModel {
       name: data['name'] ?? '',
       coverPhotoUrl: data['coverPhotoUrl'],
       type: data['type'] ?? 'General',
-      memberIds: memberIdsList, // Use the safely parsed list
+      // --- NEW: Safe parsing with default fallback ---
+      currency: data['currency'] ?? 'USD',
+      // ---------------------------------------------
+      memberIds: memberIdsList,
       incomeSplitRatio: data['incomeSplitRatio'] != null
           ? Map<String, double>.from(data['incomeSplitRatio'])
           : null,
@@ -50,6 +55,7 @@ class GroupModel {
       'name': name,
       'coverPhotoUrl': coverPhotoUrl,
       'type': type,
+      'currency': currency, // --- Add to Map ---
       'memberIds': memberIds,
       'incomeSplitRatio': incomeSplitRatio,
       'createdAt': createdAt,

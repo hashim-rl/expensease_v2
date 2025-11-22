@@ -22,7 +22,8 @@ class GroupRepository {
     if (_uid == null) {
       debugPrint(
           "--- REPO TRACE: No user logged in for getGroupsStream. Returning empty stream.");
-      return Stream.value([]);
+      // --- FIX 1: Explicitly type the empty list ---
+      return Stream.value(<GroupModel>[]);
     }
     return _firebaseProvider.getGroupsForUser(_uid!).map((snapshot) {
       debugPrint(
@@ -48,11 +49,16 @@ class GroupRepository {
     }
   }
 
-  // --- THIS IS THE NEW METHOD YOU ASKED FOR ---
   Stream<GroupModel?> getGroupStream(String groupId) {
-    if (groupId.isEmpty) return Stream.value(null);
+    if (groupId.isEmpty) {
+      // --- FIX 2: Explicitly type the null stream ---
+      return Stream<GroupModel?>.value(null);
+    }
     debugPrint("--- REPO TRACE: Subscribing to group stream for: $groupId");
-    return _firebaseProvider.groupsCollection.doc(groupId).snapshots().map((doc) {
+    return _firebaseProvider.groupsCollection
+        .doc(groupId)
+        .snapshots()
+        .map((doc) {
       if (doc.exists) {
         return GroupModel.fromFirestore(doc);
       }
@@ -60,14 +66,15 @@ class GroupRepository {
       return null;
     });
   }
-  // --- END OF NEW METHOD ---
 
   Stream<List<MemberModel>> getMembersStream(String groupId) {
     debugPrint("--- REPO TRACE: Getting member stream for group: $groupId");
     return _firebaseProvider.getMembersStream(groupId).map((snapshot) {
       debugPrint(
           "--- REPO TRACE: Stream snapshot for members received: ${snapshot.docs.length} docs.");
-      return snapshot.docs.map((doc) => MemberModel.fromFirestore(doc)).toList();
+      return snapshot.docs
+          .map((doc) => MemberModel.fromFirestore(doc))
+          .toList();
     });
   }
 
@@ -119,7 +126,7 @@ class GroupRepository {
     }
   }
 
-  Future<void> createGroup(String groupName, String groupType) async {
+  Future<void> createGroup(String groupName, String groupType, {String currency = 'USD'}) async {
     final user = _auth.currentUser;
     if (user == null) {
       debugPrint(
@@ -127,12 +134,8 @@ class GroupRepository {
       throw Exception("User not logged in");
     }
 
-    // --- THIS IS THE FIX ---
-    // The error in your screenshot was passing the 'user' object directly.
-    // The correct code passes 'user.uid', which is the String ID.
     final userDocRef =
     _firebaseProvider.firestore.collection('users').doc(user.uid);
-    // -----------------------
 
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
     final newMemberRef =
@@ -156,14 +159,16 @@ class GroupRepository {
       userName = selfHealedUser.nickname;
     } else {
       final data = userDocSnapshot.data();
-      userName =
-          data?['nickname'] as String? ?? data?['fullName'] as String? ?? 'Member';
+      userName = data?['nickname'] as String? ??
+          data?['fullName'] as String? ??
+          'Member';
     }
 
     final newGroup = GroupModel(
       id: newGroupRef.id,
       name: groupName,
       type: groupType,
+      currency: currency,
       memberIds: [user.uid],
       createdAt: Timestamp.now(),
     );
@@ -185,11 +190,9 @@ class GroupRepository {
 
     await batch.commit();
     debugPrint(
-        "--- REPO TRACE: Group '$groupName' created successfully with ID: ${newGroupRef.id}");
+        "--- REPO TRACE: Group '$groupName' created successfully with ID: ${newGroupRef.id} and Currency: $currency");
   }
 
-  // --- NEW METHOD FOR PHASE 3, STEP 5.1 ---
-  /// Updates specific settings fields on a group document.
   Future<void> updateGroupSettings(
       String groupId, Map<String, dynamic> settings) async {
     try {
@@ -202,9 +205,7 @@ class GroupRepository {
       throw Exception('Failed to update group settings.');
     }
   }
-  // ----------------------------------------
 
-  /// --- THIS IS THE DEFINITIVE FIX FOR THE PERMISSION ERROR ---
   Future<String> addMemberByEmail({
     required String groupId,
     required String email,
@@ -234,19 +235,14 @@ class GroupRepository {
     final newMember = MemberModel(id: userId, name: userName, email: email);
 
     final batch = _firebaseProvider.firestore.batch();
-    final newMemberRef = _firebaseProvider.membersCollection(groupId).doc(userId);
+    final newMemberRef =
+    _firebaseProvider.membersCollection(groupId).doc(userId);
     final groupRef = _firebaseProvider.groupsCollection.doc(groupId);
 
-    // Add the new member to the group's "members" subcollection.
     batch.set(newMemberRef, newMember.toFirestore());
-    // Add the new member's ID to the group's "memberIds" list.
     batch.update(groupRef, {
       'memberIds': FieldValue.arrayUnion([userId])
     });
-
-    // THIS LINE WAS REMOVED. It was trying to write to another user's document,
-    // which violates security rules and causes the "permission-denied" error.
-    // batch.update(userRef, {'groups.$groupId': true});
 
     await batch.commit();
     debugPrint(
@@ -298,7 +294,6 @@ class GroupRepository {
       });
       batch.delete(memberRef);
 
-      // Only attempt to update the user document if not in Guest Mode
       if (!isGuest) {
         final userSnapshot = await userRef.get();
         if (userSnapshot.exists) {

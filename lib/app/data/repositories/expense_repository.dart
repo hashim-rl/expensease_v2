@@ -1,10 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expensease/app/data/models/expense_model.dart';
 import 'package:expensease/app/data/providers/firebase_provider.dart';
-// --- NEW IMPORTS ---
 import 'package:expensease/app/data/models/comment_model.dart';
 import 'package:expensease/app/data/models/recurring_expense_model.dart';
-// ------------------
 
 /// ExpenseRepository handles all data operations related to expenses,
 /// such as creating, fetching, and managing them within a group.
@@ -24,7 +22,6 @@ class ExpenseRepository {
     try {
       return _firebaseProvider.getExpensesForGroup(groupId).map((snapshot) {
         return snapshot.docs
-        // --- UPDATED: fromSnapshot -> fromFirestore ---
             .map((doc) => ExpenseModel.fromFirestore(doc))
             .toList();
       });
@@ -54,7 +51,7 @@ class ExpenseRepository {
           .doc();
 
       final newExpense = ExpenseModel(
-        id: expenseRef.id, // ✅ use Firestore-generated ID
+        id: expenseRef.id,
         description: description,
         totalAmount: totalAmount,
         date: date,
@@ -74,10 +71,8 @@ class ExpenseRepository {
     }
   }
 
-  // --- EXISTING METHODS (omitted for brevity, assume they remain) ---
-
   // ----------------------------------------------------
-  // RECURRING EXPENSE METHODS (PHASE 2, STEP 4.2)
+  // RECURRING EXPENSE METHODS
   // ----------------------------------------------------
 
   /// Returns a live stream of all recurring expense templates for a given group ID.
@@ -118,7 +113,6 @@ class ExpenseRepository {
           .collection('recurringExpenses')
           .doc();
 
-      // Create the data map using fields compatible with RecurringExpenseModel/Cloud Function
       final data = {
         'groupId': groupId,
         'description': description,
@@ -156,12 +150,45 @@ class ExpenseRepository {
     }
   }
 
-  // --- Live Stream of Comments ---
-  /// Returns a live stream of all comments for a given expense, ordered by timestamp.
+  // --- NEW: Updates specific fields of a recurring expense template ---
+  // This is essential for the automation engine to update 'nextDueDate'
+  Future<void> updateRecurringExpenseTemplate({
+    required String groupId,
+    required String templateId,
+    required Map<String, dynamic> updates,
+  }) async {
+    try {
+      final templateRef = _firebaseProvider.firestore
+          .collection('groups')
+          .doc(groupId)
+          .collection('recurringExpenses')
+          .doc(templateId);
+
+      // Sanitize updates: Convert DateTime to Timestamp for Firestore
+      final sanitizedUpdates = <String, dynamic>{};
+      updates.forEach((key, value) {
+        if (value is DateTime) {
+          sanitizedUpdates[key] = Timestamp.fromDate(value);
+        } else {
+          sanitizedUpdates[key] = value;
+        }
+      });
+
+      await templateRef.update(sanitizedUpdates);
+    } catch (e) {
+      throw Exception('Failed to update recurring expense: $e');
+    }
+  }
+  // ------------------------------------------------------------------
+
+  // ----------------------------------------------------
+  // REPORTING & COMMENTS
+  // ----------------------------------------------------
+
+  /// Returns a live stream of all comments for a given expense.
   Stream<List<CommentModel>> getCommentsStreamForExpense(
       String groupId, String expenseId) {
     try {
-      // NOTE: Assumes FirebaseProvider has a helper to get the subcollection query
       final commentsQuery = _firebaseProvider.firestore
           .collection('groups')
           .doc(groupId)
@@ -179,7 +206,6 @@ class ExpenseRepository {
       return Stream.error('Failed to get comments stream: $e');
     }
   }
-  // ------------------------------------
 
   /// Fetches a list of expenses within a specific date range for reporting.
   Future<List<ExpenseModel>> getExpensesForReport({
@@ -194,7 +220,6 @@ class ExpenseRepository {
         endDate: endDate,
       );
       return snapshot.docs
-      // --- UPDATED: fromSnapshot -> fromFirestore ---
           .map((doc) => ExpenseModel.fromFirestore(doc))
           .toList();
     } catch (e) {
@@ -202,7 +227,6 @@ class ExpenseRepository {
     }
   }
 
-  // --- Post Comment ---
   /// Adds a new comment to the 'comments' sub-collection of an expense.
   Future<void> addComment({
     required String groupId,
@@ -211,7 +235,6 @@ class ExpenseRepository {
     required String text,
   }) async {
     try {
-      // 1. Get the reference to the comments sub-collection
       final commentsRef = _firebaseProvider.firestore
           .collection('groups')
           .doc(groupId)
@@ -219,16 +242,13 @@ class ExpenseRepository {
           .doc(expenseId)
           .collection('comments');
 
-      // 2. Create the data map for the new comment
       final newCommentData = {
         'expenseId': expenseId,
         'authorUid': authorUid,
         'text': text,
-        'timestamp':
-        FieldValue.serverTimestamp(), // Use server timestamp for reliable ordering
+        'timestamp': FieldValue.serverTimestamp(),
       };
 
-      // 3. Write to Firestore
       await commentsRef.add(newCommentData);
 
     } catch (e) {
@@ -236,7 +256,6 @@ class ExpenseRepository {
     }
   }
 
-  // --- Add Payment Expense ---
   /// Adds a new expense document to record a debt settlement payment.
   Future<void> addPaymentExpense({
     required String groupId,
@@ -255,18 +274,14 @@ class ExpenseRepository {
           .collection('expenses')
           .doc();
 
-      // Model: Payer (fromUid) paid the entire amount. Recipient (toUid) owes the entire amount.
       final newExpense = ExpenseModel(
         id: expenseRef.id,
-        description:
-        'Payment from $payerUid to $recipientUid', // UIDs will be resolved to names in the UI layer
+        description: 'Payment from $payerUid to $recipientUid',
         totalAmount: amount,
         date: DateTime.now(),
         paidById: payerUid,
-        // The recipient is the only one incurring this 'expense' debt.
         splitBetween: {recipientUid: amount},
-        category:
-        'Payment', // Crucial: Mark as 'Payment' for reporting exclusion/logic
+        category: 'Payment',
         notes: 'Settlement for simplified debt.',
         receiptUrl: null,
         createdAt: Timestamp.now(),

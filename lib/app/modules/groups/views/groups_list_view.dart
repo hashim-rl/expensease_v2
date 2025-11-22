@@ -46,6 +46,16 @@ class GroupsListView extends GetView<GroupController> {
   }
 
   Widget _buildGroupCard(GroupModel group, double balance) {
+    // Simple helper to get symbol based on currency code
+    String getCurrencySymbol(String? code) {
+      if (code == 'EUR') return '€';
+      if (code == 'GBP') return '£';
+      if (code == 'JPY') return '¥';
+      return '\$';
+    }
+
+    final symbol = getCurrencySymbol(group.currency);
+
     return FadeInUp(
       delay: Duration(milliseconds: 100 * (group.hashCode % 10)),
       child: Card(
@@ -54,14 +64,10 @@ class GroupsListView extends GetView<GroupController> {
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
         elevation: 4,
         child: InkWell(
-          // --- THIS IS THE FIX ---
-          // The navigation call is now simplified to use only the route name
-          // and the arguments parameter. This is the most reliable method.
           onTap: () => Get.toNamed(
             Routes.GROUP_DASHBOARD,
             arguments: group,
           ),
-          // --- END OF FIX ---
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -106,7 +112,7 @@ class GroupsListView extends GetView<GroupController> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
-                          '${balance < 0 ? '-' : ''}\$${balance.abs().toStringAsFixed(2)}',
+                          '${balance < 0 ? '-' : ''}$symbol${balance.abs().toStringAsFixed(2)}',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -131,6 +137,10 @@ class GroupsListView extends GetView<GroupController> {
 
   void _showCreateGroupDialog(BuildContext context) {
     controller.groupNameController.clear();
+    // Reset selection to defaults
+    controller.selectedGroupType.value = 'Flatmates';
+    controller.selectedCurrency.value = 'USD';
+
     Get.dialog(
       AlertDialog(
         title: const Text('Create a New Group'),
@@ -142,26 +152,56 @@ class GroupsListView extends GetView<GroupController> {
               decoration: const InputDecoration(labelText: 'Group Name'),
             ),
             const SizedBox(height: 20),
-            Obx(
-                  () => DropdownButton<String>(
-                value: controller.selectedGroupType.value,
-                isExpanded: true,
-                // UPDATED: Removed 'Couple' and 'Family'
-                items: ['Flatmates', 'Friends', 'Trip']
-                    .map(
-                      (String value) => DropdownMenuItem<String>(
-                    value: value,
-                    child: Text(value),
-                  ),
-                )
-                    .toList(),
-                onChanged: (newValue) {
-                  if (newValue != null) {
-                    controller.selectedGroupType.value = newValue;
-                  }
-                },
+            // Group Type Dropdown
+            Obx(() => DropdownButtonFormField<String>(
+              value: controller.selectedGroupType.value,
+              decoration: const InputDecoration(
+                labelText: 'Group Type',
+                border: OutlineInputBorder(),
               ),
-            ),
+              items: ['Flatmates', 'Friends', 'Trip']
+                  .map((String value) => DropdownMenuItem<String>(
+                value: value,
+                child: Text(value),
+              ))
+                  .toList(),
+              onChanged: (newValue) {
+                if (newValue != null) {
+                  controller.selectedGroupType.value = newValue;
+                }
+              },
+            )),
+
+            // --- NEW: Conditional Currency Dropdown ---
+            Obx(() {
+              if (controller.selectedGroupType.value == 'Trip') {
+                return Padding(
+                  padding: const EdgeInsets.only(top: 20.0),
+                  child: DropdownButtonFormField<String>(
+                    value: controller.selectedCurrency.value,
+                    decoration: const InputDecoration(
+                      labelText: 'Group Currency',
+                      border: OutlineInputBorder(),
+                      helperText: 'All expenses will convert to this',
+                    ),
+                    items: ['USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD']
+                        .map((String value) => DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    ))
+                        .toList(),
+                    onChanged: (newValue) {
+                      if (newValue != null) {
+                        controller.selectedCurrency.value = newValue;
+                      }
+                    },
+                  ),
+                );
+              } else {
+                return const SizedBox.shrink();
+              }
+            }),
+            // ------------------------------------------
           ],
         ),
         actions: [

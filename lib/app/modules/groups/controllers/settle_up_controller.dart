@@ -1,69 +1,66 @@
 import 'package:get/get.dart';
 import 'package:expensease/app/shared/utils/debt_simplifier.dart';
-// --- NEW IMPORTS ---
 import 'package:expensease/app/data/repositories/expense_repository.dart';
-import 'package:expensease/app/modules/groups/controllers/group_controller.dart';
-// -------------------
+import 'package:expensease/app/data/models/group_model.dart';
+import 'package:expensease/app/data/models/user_model.dart';
 
 class SettleUpController extends GetxController {
-  // --- NEW DEPENDENCIES ---
   final ExpenseRepository _expenseRepository = Get.find<ExpenseRepository>();
-  final GroupController _groupController = Get.find<GroupController>();
-  // ------------------------
 
-  // CHANGED: The simplified transaction list is now an observable and calculated here
   final transactions = <SimpleTransaction>[].obs;
+  final isSettling = false.obs;
 
-  // This would hold the detailed member balances (Input for DebtSimplifier)
-  // Key: Member UID, Value: Net Balance (Positive = Owed, Negative = Owes)
+  // Local context data
+  late GroupModel group;
+  late List<UserModel> members;
+
+  // Raw balances for reference
   final memberBalances = <String, double>{}.obs;
-
-  final isSettling = false.obs; // UI state for loading/button disable
 
   @override
   void onInit() {
     super.onInit();
-
-    // UPDATED LOGIC: Expect the raw balance map (UID -> Balance) as the argument
-    final Map<String, double>? rawBalances = Get.arguments as Map<String, double>?;
-
-    if (rawBalances != null && rawBalances.isNotEmpty) {
-      memberBalances.value = rawBalances;
-
-      // CRITICAL STEP: Calculate the simplified debt structure using the utility
-      transactions.value = DebtSimplifier.simplify(rawBalances);
-    } else {
-      // Fallback/Error state
-      transactions.clear();
-      memberBalances.clear();
-      Get.snackbar('Error', 'No member balances found to calculate settlement.', snackPosition: SnackPosition.BOTTOM);
-    }
+    _initializeData();
   }
 
-  // UPDATED: Implemented the logic to create a "payment" expense
-  Future<void> recordPayment(String fromUid, String toUid, double amount) async {
-    isSettling.value = true;
-    final groupId = _groupController.activeGroup.value?.id;
+  void _initializeData() {
+    final args = Get.arguments as Map<String, dynamic>?;
 
-    if (groupId == null) {
-      Get.snackbar('Error', 'Cannot record payment. Group context is missing.');
-      isSettling.value = false;
+    if (args == null) {
+      Get.snackbar('Error', 'Initialization failed. No arguments passed.');
       return;
     }
 
     try {
-      // Call the repository to record the payment as a special type of expense
+      // 1. Extract Context
+      group = args['group'] as GroupModel;
+      members = args['members'] as List<UserModel>;
+      final balances = args['balances'] as Map<String, double>;
+
+      memberBalances.value = balances;
+
+      // 2. Calculate Simplified Debts
+      if (balances.isNotEmpty) {
+        transactions.value = DebtSimplifier.simplify(balances);
+      }
+    } catch (e) {
+      Get.snackbar('Error', 'Failed to load settlement data: $e');
+    }
+  }
+
+  Future<void> recordPayment(String fromUid, String toUid, double amount) async {
+    isSettling.value = true;
+
+    try {
       await _expenseRepository.addPaymentExpense(
-        groupId: groupId,
+        groupId: group.id,
         payerUid: fromUid,
         recipientUid: toUid,
         amount: amount,
       );
 
-      // Success will automatically trigger balance updates
-      Get.back(); // Close the Settle Up screen
-      Get.snackbar('Success', 'Payment of \$${amount.toStringAsFixed(2)} recorded.');
-
+      Get.back();
+      Get.snackbar('Success', 'Payment recorded successfully.');
     } catch (e) {
       Get.snackbar('Payment Failed', e.toString());
     } finally {
@@ -71,6 +68,17 @@ class SettleUpController extends GetxController {
     }
   }
 
-// The simplified transactions (observable) and memberBalances (observable)
-// are now exposed for the SettleUpView to display.
+  // --- Helpers for the View ---
+
+  String getCurrency() {
+    return group.currency ?? 'USD';
+  }
+
+  String getMemberName(String uid) {
+    final member = members.firstWhere(
+          (m) => m.uid == uid,
+      orElse: () => UserModel(uid: uid, email: '', fullName: 'Unknown', nickname: 'User'),
+    );
+    return member.nickname;
+  }
 }

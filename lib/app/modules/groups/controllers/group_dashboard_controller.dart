@@ -13,23 +13,23 @@ class GroupDashboardController extends GetxController {
 
   final String? currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
-  // This group object will now be updated by a stream
   final Rx<GroupModel?> group = Rx<GroupModel?>(null);
   final members = <UserModel>[].obs;
 
   final expenses = <ExpenseModel>[].obs;
+
+  // Map of UserID -> Net Balance
   final memberBalances = <String, double>{}.obs;
   final isLoading = true.obs;
 
   StreamSubscription? _expenseSubscription;
-  StreamSubscription? _groupSubscription; // NEW: For the group stream
+  StreamSubscription? _groupSubscription;
 
   final currentUserNetBalance = 0.0.obs;
 
   @override
   void onInit() {
     super.onInit();
-    // Delay init to ensure Get.arguments is ready
     Future.delayed(Duration.zero, () {
       _initializeDashboard();
     });
@@ -43,7 +43,6 @@ class GroupDashboardController extends GetxController {
       return;
     }
 
-    // Start listening to the group stream
     _groupSubscription?.cancel();
     _groupSubscription = _groupRepository.getGroupStream(groupArg.id).listen(
             (updatedGroup) {
@@ -53,13 +52,11 @@ class GroupDashboardController extends GetxController {
 
             group.value = updatedGroup;
 
-            // Only refetch members if the member list has changed
             if (needsMemberRefresh) {
               _fetchMemberDetails();
             }
           } else {
-            // Handle group deletion or error
-            Get.back(); // Go back if group is deleted
+            Get.back();
             Get.snackbar("Error", "Group not found.");
           }
         }, onError: (e) {
@@ -67,18 +64,13 @@ class GroupDashboardController extends GetxController {
       Get.snackbar("Error", "Failed to load group details.");
     });
 
-    // Subscribe to expenses (can be done once)
     _subscribeToExpenses(groupArg.id);
   }
 
   Future<void> _fetchMemberDetails() async {
     if (group.value != null) {
-      // Fetch details based on the (now-live) memberIds list
       members.value =
       await _groupRepository.getMembersDetails(group.value!.memberIds);
-
-      // We process expense data *after* members are fetched
-      // to ensure balances are calculated correctly
       _processExpenseData();
     }
   }
@@ -89,8 +81,8 @@ class GroupDashboardController extends GetxController {
         .getExpensesStreamForGroup(groupId)
         .listen((expenseList) {
       expenses.value = expenseList;
-      _processExpenseData(); // Process data when expenses change
-      isLoading.value = false; // Set loading false after first load
+      _processExpenseData();
+      isLoading.value = false;
     }, onError: (error) {
       isLoading.value = false;
       Get.snackbar("Error", "Failed to load expenses.");
@@ -98,24 +90,28 @@ class GroupDashboardController extends GetxController {
   }
 
   void _processExpenseData() {
-    // Don't process balances until members are loaded
-    if (group.value == null || currentUserId == null || members.isEmpty) {
-      return;
+    // We can calculate balances even if member details aren't fully loaded yet,
+    // but we need the current User ID.
+    if (currentUserId == null) return;
+
+    // Initialize balances with 0.0 for current members
+    final newBalances = <String, double>{};
+    for (var member in members) {
+      newBalances[member.uid] = 0.0;
     }
 
-    final newBalances = {for (var member in members) member.uid: 0.0};
-
     for (var expense in expenses) {
-      if (newBalances.containsKey(expense.paidById)) {
-        newBalances[expense.paidById] =
-            newBalances[expense.paidById]! + expense.totalAmount;
-      }
+      // 1. Payer gains credit (+)
+      // If the payer left the group, we still track them (add to map if missing)
+      newBalances[expense.paidById] = (newBalances[expense.paidById] ?? 0.0) + expense.totalAmount;
+
+      // 2. Participants accumulate debt (-)
       for (var entry in expense.splitBetween.entries) {
         final participantId = entry.key;
         final share = entry.value;
-        if (newBalances.containsKey(participantId)) {
-          newBalances[participantId] = newBalances[participantId]! - share;
-        }
+
+        // Subtract share from their balance
+        newBalances[participantId] = (newBalances[participantId] ?? 0.0) - share;
       }
     }
 
@@ -124,20 +120,26 @@ class GroupDashboardController extends GetxController {
   }
 
   String getMemberName(String uid) {
+    // Try to find in current members
     final member = members.firstWhere((m) => m.uid == uid,
         orElse: () => UserModel(
-          uid: uid, // Use the UID for a better placeholder
+          uid: uid,
           email: '',
           fullName: 'Unknown',
-          nickname: 'Unknown User', // More specific placeholder
+          nickname: 'Past Member', // Better fallback for people who left
         ));
     return member.nickname;
+  }
+
+  // --- NEW: Helper for View to get Currency ---
+  String getGroupCurrency() {
+    return group.value?.currency ?? 'USD';
   }
 
   @override
   void onClose() {
     _expenseSubscription?.cancel();
-    _groupSubscription?.cancel(); // NEW: Cancel group sub
+    _groupSubscription?.cancel();
     super.onClose();
   }
 }

@@ -11,10 +11,20 @@ class FirebaseProvider {
 
   // --- Public Getters for Firestore Access ---
   FirebaseFirestore get firestore => _firestore;
+
   CollectionReference<Map<String, dynamic>> get groupsCollection =>
       _firestore.collection('groups');
+
   CollectionReference<Map<String, dynamic>> membersCollection(String groupId) =>
       groupsCollection.doc(groupId).collection('members');
+
+  // --- Expenses Collection Helper ---
+  CollectionReference<Map<String, dynamic>> expensesCollection(String groupId) =>
+      groupsCollection.doc(groupId).collection('expenses');
+
+  // --- NEW: Notifications Collection Helper ---
+  CollectionReference<Map<String, dynamic>> notificationsCollection(String uid) =>
+      _firestore.collection('users').doc(uid).collection('notifications');
 
   // --- Auth Methods ---
 
@@ -73,7 +83,10 @@ class FirebaseProvider {
   // --- Group Methods ---
 
   Stream<QuerySnapshot<Map<String, dynamic>>> getGroupsForUser(String uid) {
-    return groupsCollection.where('memberIds', arrayContains: uid).snapshots();
+    return groupsCollection
+        .where('memberIds', arrayContains: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
   }
 
   Future<void> createGroup(model.GroupModel group) {
@@ -96,7 +109,6 @@ class FirebaseProvider {
     return membersCollection(groupId).doc(member.id).set(member.toFirestore());
   }
 
-  // REMOVED 'PLAYA' from here
   Future<bool> isUserMemberOfGroup(String groupId, String uid) async {
     final doc = await membersCollection(groupId).doc(uid).get();
     return doc.exists;
@@ -104,11 +116,8 @@ class FirebaseProvider {
 
   // --- Expense Methods ---
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> getExpensesForGroup(
-      String groupId) {
-    return groupsCollection
-        .doc(groupId)
-        .collection('expenses')
+  Stream<QuerySnapshot<Map<String, dynamic>>> getExpensesForGroup(String groupId) {
+    return expensesCollection(groupId)
         .orderBy('date', descending: true)
         .snapshots();
   }
@@ -118,22 +127,37 @@ class FirebaseProvider {
     required DateTime startDate,
     required DateTime endDate,
   }) {
-    return groupsCollection
-        .doc(groupId)
-        .collection('expenses')
+    return expensesCollection(groupId)
         .where('date', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
         .where('date', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .orderBy('date', descending: false)
+        .orderBy('date', descending: true)
         .get();
   }
 
   Future<void> addExpense(String groupId, model.ExpenseModel expense) {
-    return groupsCollection
-        .doc(groupId)
-        .collection('expenses')
+    return expensesCollection(groupId)
         .doc(expense.id)
         .set(expense.toFirestore());
   }
 
-// --- Family Feature Methods (REMOVED) ---
+  // --- NEW: Notification Methods ---
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> getUserNotificationsStream(String uid) {
+    return notificationsCollection(uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  Future<void> markNotificationAsRead(String uid, String notificationId) {
+    return notificationsCollection(uid).doc(notificationId).update({'isRead': true});
+  }
+
+  Future<void> clearAllNotifications(String uid) async {
+    final batch = _firestore.batch();
+    final snapshots = await notificationsCollection(uid).get();
+    for (var doc in snapshots.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
 }
