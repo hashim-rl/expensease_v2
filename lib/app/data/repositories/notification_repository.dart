@@ -2,7 +2,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:expensease/app/data/models/notification_model.dart';
 import 'package:expensease/app/data/providers/firebase_provider.dart';
 import 'package:expensease/app/services/auth_service.dart';
-import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class NotificationRepository {
@@ -11,55 +10,28 @@ class NotificationRepository {
 
   String? get _uid => _authService.user.value?.uid;
 
-  /// Returns a live stream of all unread notifications for the current user,
-  /// ordered by timestamp (newest first).
-  Stream<List<NotificationModel>> getNotificationsStream() {
+  /// Returns a live stream of ALL notifications (read and unread) for the current user,
+  /// ordered by creation time (newest first).
+  Stream<List<NotificationModel>> getUserNotificationsStream() {
     if (_uid == null) {
       return Stream.value([]);
     }
 
-    // Notifications are typically stored in a sub-collection under the user's document
-    // e.g., /users/{userId}/notifications
     final notificationsQuery = _firebaseProvider.firestore
         .collection('users')
         .doc(_uid)
         .collection('notifications')
-        .where('isRead', isEqualTo: false) // Filter for unread notifications
-        .orderBy('timestamp', descending: true);
+        .orderBy('createdAt', descending: true); // Matches Model 'createdAt'
 
     return notificationsQuery.snapshots().map((snapshot) {
-      return snapshot.docs.map((doc) => _notificationFromSnapshot(doc)).toList();
+      return snapshot.docs.map((doc) {
+        // Use the Factory constructor we created in the Model
+        return NotificationModel.fromMap(
+            doc.data(),
+            doc.id
+        );
+      }).toList();
     });
-  }
-
-  // Helper function to convert Firestore snapshot to model (simplified for this context)
-  NotificationModel _notificationFromSnapshot(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>?;
-    if (data == null) {
-      // Return a placeholder or handle error
-      return NotificationModel(
-        id: doc.id,
-        title: 'Error Loading Notification',
-        timestamp: DateTime.now(),
-        isRead: true,
-        type: 'error',
-        senderUid: '',
-        icon: Icons.error,
-        iconColor: Colors.red,
-      );
-    }
-
-    // NOTE: This assumes a complete NotificationModel implementation.
-    return NotificationModel(
-      id: doc.id,
-      title: data['title'] ?? 'New Alert',
-      senderUid: data['senderUid'] ?? '',
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      isRead: data['isRead'] ?? false,
-      type: data['type'] ?? 'general',
-      icon: Icons.notifications,
-      iconColor: Colors.blue,
-    );
   }
 
   /// Marks a specific notification as read.
@@ -73,31 +45,30 @@ class NotificationRepository {
           .doc(notificationId)
           .update({'isRead': true});
     } catch (e) {
-      // Re-throw as a more specific exception or handle with a logging service
-      throw Exception('Failed to update notification status.');
+      throw Exception('Failed to update notification status: $e');
     }
   }
 
-  /// Clears all unread notifications for the current user.
+  /// Deletes all notifications for the current user.
+  /// Used when the user clicks "Clear All" in the View.
   Future<void> clearAllNotifications() async {
     if (_uid == null) return;
     try {
-      // Find all unread notifications in a batch and mark them as read
-      final batch = _firebaseProvider.firestore.batch();
-      final snapshot = await _firebaseProvider.firestore
+      final collectionRef = _firebaseProvider.firestore
           .collection('users')
           .doc(_uid)
-          .collection('notifications')
-          .where('isRead', isEqualTo: false)
-          .get();
+          .collection('notifications');
 
+      final snapshot = await collectionRef.get();
+
+      // Batch delete for efficiency and atomicity
+      final batch = _firebaseProvider.firestore.batch();
       for (var doc in snapshot.docs) {
-        batch.update(doc.reference, {'isRead': true});
+        batch.delete(doc.reference);
       }
       await batch.commit();
     } catch (e) {
-      // Re-throw as a more specific exception or handle with a logging service
-      throw Exception('Failed to clear notifications.');
+      throw Exception('Failed to clear notifications: $e');
     }
   }
 }

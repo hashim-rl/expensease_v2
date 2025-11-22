@@ -23,8 +23,10 @@ class RecurringExpenseController extends GetxController {
       if (group != null && !group.isLocal) {
         isLoading.value = true;
         recurringExpenses.bindStream(_expenseRepository.getRecurringExpensesStream(group.id));
-        // --- NEW: Check for due bills whenever the group loads ---
+
+        // Check for due bills whenever the group loads (with a slight delay to ensure data is ready)
         Future.delayed(const Duration(seconds: 2), () => checkAndProcessDueExpenses());
+
         isLoading.value = false;
       } else {
         recurringExpenses.clear();
@@ -49,6 +51,7 @@ class RecurringExpenseController extends GetxController {
       // Normalize due date to midnight
       final due = DateTime(template.nextDueDate.year, template.nextDueDate.month, template.nextDueDate.day);
 
+      // If the due date is today or in the past, process it
       if (due.isBefore(today) || due.isAtSameMomentAs(today)) {
         debugPrint("--- RECURRING ENGINE: Processing '${template.description}' (Due: $due) ---");
 
@@ -100,12 +103,14 @@ class RecurringExpenseController extends GetxController {
             updates: {'nextDueDate': nextDate},
           );
 
-          // 4. Notify User (Snackbar is risky if they aren't looking, but good for MVP)
+          // 4. Notify User
           Get.snackbar(
             'Auto-Expense Generated',
             'Recurring bill "${template.description}" was added automatically.',
             duration: const Duration(seconds: 5),
             icon: const Icon(Icons.check_circle, color: Colors.green),
+            snackPosition: SnackPosition.TOP,
+            backgroundColor: Colors.white.withOpacity(0.9),
           );
 
         } catch (e) {

@@ -22,7 +22,7 @@ class GroupRepository {
     if (_uid == null) {
       debugPrint(
           "--- REPO TRACE: No user logged in for getGroupsStream. Returning empty stream.");
-      // --- FIX 1: Explicitly type the empty list ---
+      // --- FIX 1: Explicit Type Cast ---
       return Stream.value(<GroupModel>[]);
     }
     return _firebaseProvider.getGroupsForUser(_uid!).map((snapshot) {
@@ -49,9 +49,9 @@ class GroupRepository {
     }
   }
 
+  // --- FIX 2: Added getGroupStream with correct type ---
   Stream<GroupModel?> getGroupStream(String groupId) {
     if (groupId.isEmpty) {
-      // --- FIX 2: Explicitly type the null stream ---
       return Stream<GroupModel?>.value(null);
     }
     debugPrint("--- REPO TRACE: Subscribing to group stream for: $groupId");

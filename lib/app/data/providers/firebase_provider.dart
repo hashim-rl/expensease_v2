@@ -18,11 +18,11 @@ class FirebaseProvider {
   CollectionReference<Map<String, dynamic>> membersCollection(String groupId) =>
       groupsCollection.doc(groupId).collection('members');
 
-  // --- Expenses Collection Helper ---
+  // --- FIXED: Added missing helper for Expenses ---
   CollectionReference<Map<String, dynamic>> expensesCollection(String groupId) =>
       groupsCollection.doc(groupId).collection('expenses');
 
-  // --- NEW: Notifications Collection Helper ---
+  // --- FIXED: Added missing helper for Notifications ---
   CollectionReference<Map<String, dynamic>> notificationsCollection(String uid) =>
       _firestore.collection('users').doc(uid).collection('notifications');
 
@@ -85,7 +85,7 @@ class FirebaseProvider {
   Stream<QuerySnapshot<Map<String, dynamic>>> getGroupsForUser(String uid) {
     return groupsCollection
         .where('memberIds', arrayContains: uid)
-        .orderBy('createdAt', descending: true)
+        .orderBy('createdAt', descending: true) // Sorted Newest First
         .snapshots();
   }
 
@@ -116,7 +116,8 @@ class FirebaseProvider {
 
   // --- Expense Methods ---
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> getExpensesForGroup(String groupId) {
+  Stream<QuerySnapshot<Map<String, dynamic>>> getExpensesForGroup(
+      String groupId) {
     return expensesCollection(groupId)
         .orderBy('date', descending: true)
         .snapshots();
@@ -140,7 +141,7 @@ class FirebaseProvider {
         .set(expense.toFirestore());
   }
 
-  // --- NEW: Notification Methods ---
+  // --- NEW: Notification Methods (Required for Feature Completion) ---
 
   Stream<QuerySnapshot<Map<String, dynamic>>> getUserNotificationsStream(String uid) {
     return notificationsCollection(uid)
