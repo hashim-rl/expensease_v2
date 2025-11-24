@@ -31,7 +31,14 @@ class SettleUpView extends GetView<SettleUpController> {
         iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: Obx(() {
-        if (controller.transactions.isEmpty && controller.memberBalances.isNotEmpty) {
+        // --- ADDED: Loading State to prevent "All Settled" flash ---
+        if (controller.isLoading.value) {
+          return const Center(
+            child: CircularProgressIndicator(color: AppColors.primaryBlue),
+          );
+        }
+
+        if (controller.transactions.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
