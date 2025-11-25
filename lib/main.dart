@@ -9,8 +9,13 @@ import 'package:expensease/app/routes/app_pages.dart';
 import 'package:expensease/app/shared/theme/app_theme.dart';
 import 'package:expensease/app/bindings/app_binding.dart';
 import 'package:expensease/firebase_options.dart';
-import 'package:expensease/app/modules/authentication/views/splash_view.dart';
 import 'package:expensease/app/services/auth_service.dart';
+
+// --- VIEW IMPORTS FOR STABLE NAVIGATION ---
+import 'package:expensease/app/modules/authentication/views/splash_view.dart';
+import 'package:expensease/app/modules/authentication/views/auth_hub_view.dart';
+import 'package:expensease/app/modules/dashboard/views/dashboard_view.dart';
+// ------------------------------------------
 
 void main() async {
   // --- THIS IS THE ROBUST INITIALIZATION SEQUENCE ---
@@ -21,6 +26,7 @@ void main() async {
   );
 
   // --- NEW LINE TO ENABLE OFFLINE PERSISTENCE ---
+  // This ensures the app works without internet by caching Firestore data locally.
   FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
   // ---------------------------------------------
 
@@ -45,39 +51,22 @@ class MyApp extends StatelessWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       initialBinding: AppBinding(),
+      getPages: AppPages.routes,
 
-      // --- THIS IS THE DEFINITIVE FIX FOR THE RACE CONDITION ---
-      // The app's home is now controlled by an Obx widget that listens to our
-      // reliable AuthService. It will instantly and correctly show the right
-      // screen based on the user's real-time login status.
+      // --- PROFESSIONAL REACTIVE NAVIGATION ---
+      // Instead of triggering side-effects (Get.offAllNamed) inside the build method,
+      // we reactively switch the 'home' widget based on the user state.
+      // This is cleaner, faster, and eliminates race conditions.
       home: Obx(() {
         if (authService.isLoading.value) {
-          // While the service is checking the initial auth state, show a splash screen.
           return const SplashView();
         } else if (authService.user.value != null) {
-          // If the user is logged in, go to the dashboard.
-          // --- SAFER NAVIGATION ---
-          // Use Get.offAllNamed to ensure proper stack management
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Get.offAllNamed('/dashboard');
-          });
-          // Return a placeholder while navigating
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          // ------------------------
+          return const DashboardView();
         } else {
-          // If the user is logged out, go to the auth hub.
-          // --- SAFER NAVIGATION ---
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            Get.offAllNamed('/auth-hub');
-          });
-          // Return a placeholder while navigating
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
-          // ------------------------
+          return const AuthHubView();
         }
       }),
-      // --- REMOVE HOME, use initialRoute instead for GetX ---
-      // initialRoute: '/splash', // Or determine initial route based on auth status
-      getPages: AppPages.routes,
+      // ----------------------------------------
     );
   }
 }

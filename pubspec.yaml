@@ -38,7 +38,7 @@ dependencies:
 
   # PDF & Printing
   pdf: ^3.10.8
-  printing: ^5.12.0
+  printing: ^5.13.1  # UPDATED to fix Android build conflicts
 
   # Notifications
   flutter_local_notifications: ^17.0.0

@@ -1,4 +1,4 @@
-import 'dart:developer'; // Import the developer library for logging
+import 'dart:developer';
 import 'package:get/get.dart';
 import 'package:expensease/app/data/models/user_model.dart';
 import 'package:expensease/app/data/models/expense_model.dart';
@@ -7,12 +7,10 @@ import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/repositories/expense_repository.dart';
 
 class ProfileController extends GetxController {
-  // Repositories
   final UserRepository _userRepository;
   final GroupRepository _groupRepository;
   final ExpenseRepository _expenseRepository;
 
-  // Constructor to receive/inject the repositories
   ProfileController({
     required UserRepository userRepository,
     required GroupRepository groupRepository,
@@ -21,7 +19,6 @@ class ProfileController extends GetxController {
         _groupRepository = groupRepository,
         _expenseRepository = expenseRepository;
 
-  // Observables for UI state
   final isLoading = true.obs;
   final Rx<UserModel?> currentUser = Rx<UserModel?>(null);
   final recentExpenses = <ExpenseModel>[].obs;
@@ -34,41 +31,40 @@ class ProfileController extends GetxController {
     loadAllProfileData();
   }
 
+  /// Fetches user data and aggregates financials from ALL groups.
+  /// This gives the "Global" view of the user's financial health.
   Future<void> loadAllProfileData() async {
     isLoading.value = true;
     try {
       currentUser.value = await _userRepository.getCurrentUser();
 
       if (currentUser.value != null) {
+        // 1. Get all groups the user is in
         final groups = await _groupRepository.getGroupsStream().first;
         final allExpenses = <ExpenseModel>[];
 
+        // 2. Iterate groups to fetch expenses (MVP Approach)
+        // In a large-scale app, we would calculate this server-side.
         for (var group in groups) {
           try {
-            log('Processing Group ID: ${group.id}'); // DEBUG LOG
             final groupExpenses = await _expenseRepository
                 .getExpensesStreamForGroup(group.id)
                 .first;
             allExpenses.addAll(groupExpenses);
           } catch (e) {
-            log('Error loading expenses for group ${group.id}: $e'); // ERROR LOG
-            // Continue to the next group instead of crashing
+            log('Error loading expenses for group ${group.id}: $e');
           }
         }
 
+        // 3. Calculate Totals
         _calculateFinancialSummary(allExpenses);
-        // Sort expenses only after calculation
-        allExpenses.sort((a, b) {
-          // Add null checks for date comparison to be safe
-          final dateA = a.date;
-          final dateB = b.date;
-          return dateB.compareTo(dateA);
-        });
+
+        // 4. Sort and Store Recent
+        allExpenses.sort((a, b) => b.date.compareTo(a.date));
         recentExpenses.value = allExpenses.take(10).toList();
       }
     } catch (e) {
-      log('Error in loadAllProfileData: $e'); // TOP-LEVEL ERROR LOG
-      // You might want to show a user-friendly error message here
+      log('Error in loadAllProfileData: $e');
     } finally {
       isLoading.value = false;
     }
@@ -82,22 +78,22 @@ class ProfileController extends GetxController {
     if (userId == null) return;
 
     for (var expense in allExpenses) {
-      try {
-        log('Processing Expense ID: ${expense.id}'); // DEBUG LOG
-        // Defensive check for null on totalAmount
-        final totalAmount = expense.totalAmount;
+      // Skip payment records for "Spending" calculation, but keep for "Balance"
+      final isPayment = expense.category == 'Payment';
 
-        if (expense.paidById == userId) {
-          calculatedNetBalance += totalAmount;
+      // How much did I pay?
+      if (expense.paidById == userId) {
+        calculatedNetBalance += expense.totalAmount;
+      }
+
+      // How much was I responsible for?
+      final myShare = expense.splitBetween[userId] ?? 0.0;
+
+      if (myShare > 0) {
+        calculatedNetBalance -= myShare;
+        if (!isPayment) {
+          calculatedTotalSpent += myShare;
         }
-
-        // Defensive check for null on splitBetween map and the user's share
-        final userShare = expense.splitBetween[userId] ?? 0.0;
-        calculatedNetBalance -= userShare;
-        calculatedTotalSpent += userShare;
-      } catch (e) {
-        log('Error calculating summary for expense ${expense.id}: $e'); // ERROR LOG
-        // Continue to the next expense
       }
     }
 

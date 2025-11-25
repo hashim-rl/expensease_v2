@@ -209,6 +209,22 @@ class AddExpenseView extends GetView<ExpenseController> {
                         controller.selectedFrequency.value = val ?? 'Monthly',
                       ),
                       const SizedBox(height: 16.0),
+
+                      // --- NEW: WhatsApp Reminder Field (Only visible when Recurring) ---
+                      TextFormField(
+                        controller: controller.whatsappNumberController,
+                        decoration: const InputDecoration(
+                          labelText: 'WhatsApp for Reminders',
+                          hintText: '+1234567890',
+                          helperText: 'Include country code (e.g., +1)',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.message, color: Colors.green),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 16.0),
+                      // ----------------------------------------------------------------
+
                       TextFormField(
                         decoration: InputDecoration(
                           labelText: 'Next Due Date',

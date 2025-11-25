@@ -9,6 +9,11 @@ import 'package:expensease/app/routes/app_routes.dart';
 import 'package:expensease/app/shared/theme/app_colors.dart';
 import 'package:expensease/app/shared/widgets/app_drawer.dart';
 
+// --- NEW IMPORTS TO LINK THE REPORT ENGINE ---
+import 'package:expensease/app/modules/reports/views/reports_dashboard_view.dart';
+import 'package:expensease/app/modules/reports/bindings/reports_binding.dart';
+// ---------------------------------------------
+
 class DashboardView extends GetView<DashboardController> {
   const DashboardView({super.key});
 
@@ -59,7 +64,6 @@ class DashboardView extends GetView<DashboardController> {
                   _buildSummaryContent(),
                   MealView(),
                   SharedBuysView(),
-                  // FIX APPLIED: Removed 'const' because BillsView no longer has a const constructor (to fix the Get.find issue)
                   BillsView(),
                 ],
               ),
@@ -134,7 +138,34 @@ class DashboardView extends GetView<DashboardController> {
               ),
               _buildAddButton(),
             ],
-          )
+          ),
+
+          // --- NEW BUTTON: View Full Report & PDF ---
+          const SizedBox(height: 40),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                // We navigate to the full report view and initialize its binding
+                // This ensures the PDF engine is ready when the user gets there.
+                Get.to(() => const ReportsDashboardView(), binding: ReportsBinding());
+              },
+              icon: const Icon(Icons.analytics_outlined, color: Colors.white),
+              label: const Text(
+                "View Full Report & Export PDF",
+                style: TextStyle(fontSize: 16, color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryBlue,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 2,
+              ),
+            ),
+          ),
+          // ------------------------------------------
         ],
       ),
     );
@@ -176,7 +207,6 @@ class DashboardView extends GetView<DashboardController> {
         if (value == 'create_group') {
           Get.toNamed(Routes.GROUPS_LIST);
         } else {
-          // This logic is now handled in the DashboardController
           Get.find<DashboardController>().showGroupSelectionDialog(category: value);
         }
       },

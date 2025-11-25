@@ -30,7 +30,6 @@ android {
         applicationId = "com.example.expensease"
         minSdk = 21
         targetSdk = 35
-        // Manually set the version code and name here
         versionCode = 1
         versionName = "1.0"
         multiDexEnabled = true
@@ -49,6 +48,5 @@ flutter {
 
 dependencies {
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.20")
-    // Update the version number in this line from 2.0.4 to 2.1.4
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
 }

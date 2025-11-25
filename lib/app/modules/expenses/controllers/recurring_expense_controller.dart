@@ -3,10 +3,16 @@ import 'package:get/get.dart';
 import 'package:expensease/app/data/models/recurring_expense_model.dart';
 import 'package:expensease/app/data/repositories/expense_repository.dart';
 import 'package:expensease/app/modules/groups/controllers/group_controller.dart';
+// --- NEW IMPORT ---
+import 'package:expensease/app/shared/services/notification_service.dart';
+// -----------------
 
 class RecurringExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository = Get.find<ExpenseRepository>();
   final GroupController _groupController = Get.find<GroupController>();
+  // --- NEW SERVICE INJECTION ---
+  final NotificationService _notificationService = NotificationService();
+  // ----------------------------
 
   final isLoading = true.obs;
   final recurringExpenses = <RecurringExpenseModel>[].obs;
@@ -103,7 +109,7 @@ class RecurringExpenseController extends GetxController {
             updates: {'nextDueDate': nextDate},
           );
 
-          // 4. Notify User
+          // 4. Notify User (In-App)
           Get.snackbar(
             'Auto-Expense Generated',
             'Recurring bill "${template.description}" was added automatically.',
@@ -112,6 +118,26 @@ class RecurringExpenseController extends GetxController {
             snackPosition: SnackPosition.TOP,
             backgroundColor: Colors.white.withOpacity(0.9),
           );
+
+          // 5. TRIGGER WHATSAPP REMINDER (Premium Feature Logic)
+          if (template.whatsappNumber != null && template.whatsappNumber!.isNotEmpty) {
+            // We ask the user if they want to send the reminder (Permissions best practice)
+            Get.defaultDialog(
+                title: "Send Reminder?",
+                middleText: "Do you want to notify the group via WhatsApp regarding '${template.description}'?",
+                textConfirm: "Open WhatsApp",
+                textCancel: "No",
+                confirmTextColor: Colors.white,
+                buttonColor: Colors.green,
+                onConfirm: () {
+                  Get.back(); // Close dialog
+                  _notificationService.sendWhatsAppMessage(
+                      phoneNumber: template.whatsappNumber!,
+                      message: "ExpensEase Alert: The recurring bill '${template.description}' of \$${template.amount} has been automatically recorded. Please check your balances."
+                  );
+                }
+            );
+          }
 
         } catch (e) {
           debugPrint("!!! RECURRING ENGINE ERROR: Failed to process ${template.description}: $e");
