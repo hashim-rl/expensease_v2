@@ -173,7 +173,6 @@ class RecurringExpenseController extends GetxController {
       Get.snackbar('Error', e.toString());
     }
   }
-
   Future<void> deleteRecurringExpense(String id) async {
     final groupId = _groupController.activeGroup.value?.id;
     if (groupId == null) return;

@@ -186,7 +186,7 @@ class RecurringExpenseView extends GetView<RecurringExpenseController> {
       middleTextStyle: AppTextStyles.bodyText1,
       confirm: TextButton(
         child: const Text("Delete", style: TextStyle(color: Colors.red)),
-        onPressed: () {
+        onPressed: ()  {
           controller.deleteRecurringExpense(expenseId);
           Get.back();
         },

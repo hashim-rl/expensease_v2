@@ -6,7 +6,6 @@ import 'package:expensease/app/data/repositories/group_repository.dart';
 import 'package:expensease/app/data/repositories/user_repository.dart';
 import 'package:expensease/app/modules/authentication/controllers/auth_controller.dart';
 import 'package:expensease/app/modules/groups/controllers/group_controller.dart';
-
 // --- NEW IMPORTS FOR DASHBOARD DEPENDENCIES ---
 import 'package:expensease/app/modules/dashboard/controllers/dashboard_controller.dart';
 import 'package:expensease/app/modules/meal/controllers/meal_controller.dart';

@@ -200,7 +200,6 @@ class DashboardView extends GetView<DashboardController> {
       ],
     );
   }
-
   Widget _buildAddButton() {
     return PopupMenuButton<String>(
       onSelected: (value) {
