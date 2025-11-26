@@ -3,16 +3,15 @@ import 'package:get/get.dart';
 import 'package:expensease/app/data/models/recurring_expense_model.dart';
 import 'package:expensease/app/data/repositories/expense_repository.dart';
 import 'package:expensease/app/modules/groups/controllers/group_controller.dart';
-// --- NEW IMPORT ---
-import 'package:expensease/app/shared/services/notification_service.dart';
-// -----------------
+import 'package:expensease/app/data/models/group_model.dart';
+import 'package:expensease/app/shared/services/notification_service.dart'; // Import NotificationService
 
 class RecurringExpenseController extends GetxController {
   final ExpenseRepository _expenseRepository = Get.find<ExpenseRepository>();
   final GroupController _groupController = Get.find<GroupController>();
-  // --- NEW SERVICE INJECTION ---
+  // Assuming NotificationService is available or registered. If not, remove this line and the usage below.
+  // Based on previous steps, we added it.
   final NotificationService _notificationService = NotificationService();
-  // ----------------------------
 
   final isLoading = true.obs;
   final recurringExpenses = <RecurringExpenseModel>[].obs;
@@ -20,46 +19,54 @@ class RecurringExpenseController extends GetxController {
   @override
   void onInit() {
     super.onInit();
-    _bindRecurringExpensesStream();
+
+    // If GroupController is still loading its initial groups, we should wait or listen to its loading state.
+    // Ideally, we listen to activeGroup.
+
+    ever(_groupController.activeGroup, _loadDataForGroup);
+
+    // Initial load attempt
+    _loadDataForGroup(_groupController.activeGroup.value);
   }
 
-  void _bindRecurringExpensesStream() {
-    // Bind to the active group so we switch lists if the user switches groups
-    ever(_groupController.activeGroup, (group) {
-      if (group != null && !group.isLocal) {
-        isLoading.value = true;
-        recurringExpenses.bindStream(_expenseRepository.getRecurringExpensesStream(group.id));
+  void _loadDataForGroup(GroupModel? group) {
+    if (group != null) {
+      isLoading.value = true;
 
-        // Check for due bills whenever the group loads (with a slight delay to ensure data is ready)
-        Future.delayed(const Duration(seconds: 2), () => checkAndProcessDueExpenses());
+      // Bind the stream
+      recurringExpenses.bindStream(
+          _expenseRepository.getRecurringExpensesStream(group.id)
+      );
 
+      // Check for due bills with a slight delay
+      Future.delayed(const Duration(seconds: 1), () {
+        checkAndProcessDueExpenses();
         isLoading.value = false;
-      } else {
-        recurringExpenses.clear();
-        isLoading.value = false;
-      }
-    });
+      });
+
+    } else {
+      // NO GROUP SELECTED
+      recurringExpenses.clear();
+      isLoading.value = false; // Stop loading immediately
+    }
   }
 
-  /// --- THE AUTOMATION ENGINE ---
-  /// Checks if any template is due. If so, creates a real expense and updates the template.
   Future<void> checkAndProcessDueExpenses() async {
     final groupId = _groupController.activeGroup.value?.id;
     if (groupId == null) return;
 
+    if (recurringExpenses.isEmpty) return;
+
     debugPrint("--- RECURRING ENGINE: Checking for due expenses in group $groupId ---");
 
     final now = DateTime.now();
-    // Normalize 'today' to midnight to avoid time-of-day issues
     final today = DateTime(now.year, now.month, now.day);
 
     for (var template in recurringExpenses) {
-      // Normalize due date to midnight
       final due = DateTime(template.nextDueDate.year, template.nextDueDate.month, template.nextDueDate.day);
 
-      // If the due date is today or in the past, process it
       if (due.isBefore(today) || due.isAtSameMomentAs(today)) {
-        debugPrint("--- RECURRING ENGINE: Processing '${template.description}' (Due: $due) ---");
+        debugPrint("--- RECURRING ENGINE: Processing '${template.description}' ---");
 
         try {
           // 1. Create the Real Expense
@@ -67,10 +74,10 @@ class RecurringExpenseController extends GetxController {
             groupId: groupId,
             description: template.description,
             totalAmount: template.amount,
-            date: DateTime.now(), // Expense created 'now'
+            date: DateTime.now(),
             paidById: template.paidBy,
             splitBetween: template.split,
-            category: 'Recurring', // Tag it so we know
+            category: 'Recurring',
           );
 
           // 2. Calculate Next Due Date
@@ -80,18 +87,15 @@ class RecurringExpenseController extends GetxController {
               nextDate = nextDate.add(const Duration(days: 7));
               break;
             case 'monthly':
-            // Logic to handle month overflow (e.g., Jan 31 -> Feb 28)
               int nextMonth = nextDate.month + 1;
               int nextYear = nextDate.year;
               if (nextMonth > 12) {
                 nextMonth = 1;
                 nextYear++;
               }
-              // Get the last day of the next month
               int lastDayOfNextMonth = DateTime(nextYear, nextMonth + 1, 0).day;
               int day = template.nextDueDate.day;
               if (day > lastDayOfNextMonth) day = lastDayOfNextMonth;
-
               nextDate = DateTime(nextYear, nextMonth, day);
               break;
             case 'quarterly':
@@ -109,19 +113,10 @@ class RecurringExpenseController extends GetxController {
             updates: {'nextDueDate': nextDate},
           );
 
-          // 4. Notify User (In-App)
-          Get.snackbar(
-            'Auto-Expense Generated',
-            'Recurring bill "${template.description}" was added automatically.',
-            duration: const Duration(seconds: 5),
-            icon: const Icon(Icons.check_circle, color: Colors.green),
-            snackPosition: SnackPosition.TOP,
-            backgroundColor: Colors.white.withOpacity(0.9),
-          );
+          Get.snackbar('Auto-Expense', 'Recurring bill "${template.description}" generated.');
 
           // 5. TRIGGER WHATSAPP REMINDER (Premium Feature Logic)
           if (template.whatsappNumber != null && template.whatsappNumber!.isNotEmpty) {
-            // We ask the user if they want to send the reminder (Permissions best practice)
             Get.defaultDialog(
                 title: "Send Reminder?",
                 middleText: "Do you want to notify the group via WhatsApp regarding '${template.description}'?",
@@ -140,7 +135,7 @@ class RecurringExpenseController extends GetxController {
           }
 
         } catch (e) {
-          debugPrint("!!! RECURRING ENGINE ERROR: Failed to process ${template.description}: $e");
+          debugPrint("!!! RECURRING ERROR: $e");
         }
       }
     }
@@ -157,7 +152,7 @@ class RecurringExpenseController extends GetxController {
   }) async {
     final groupId = _groupController.activeGroup.value?.id;
     if (groupId == null) {
-      Get.snackbar('Error', 'Cannot create recurring expense: No active group.');
+      Get.snackbar('Error', 'No active group found.');
       return;
     }
 
@@ -173,9 +168,9 @@ class RecurringExpenseController extends GetxController {
         whatsappNumber: whatsappNumber,
       );
       Get.back();
-      Get.snackbar('Success', 'Recurring expense "$description" scheduled!');
+      Get.snackbar('Success', 'Recurring expense scheduled!');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to save template: ${e.toString()}');
+      Get.snackbar('Error', e.toString());
     }
   }
 
@@ -187,9 +182,9 @@ class RecurringExpenseController extends GetxController {
         groupId: groupId,
         templateId: id,
       );
-      Get.snackbar('Success', 'Recurring expense cancelled.');
+      Get.snackbar('Success', 'Recurring expense deleted.');
     } catch (e) {
-      Get.snackbar('Error', 'Failed to delete: ${e.toString()}');
+      Get.snackbar('Error', e.toString());
     }
   }
 }
