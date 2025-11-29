@@ -11,13 +11,17 @@ class MemberModel {
     required this.id,
     required this.name,
     this.email,
-    this.isPlaceholder = false, // FIX 1: Made this optional with a default value
+    this.isPlaceholder = false,
     this.role = 'Viewer',
   });
 
   /// Creates a MemberModel from a Firestore document snapshot.
-  factory MemberModel.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) { // FIX 2: Renamed
-    final data = doc.data()!;
+  /// UPDATED: Accepts a generic DocumentSnapshot and safely casts data.
+  factory MemberModel.fromFirestore(DocumentSnapshot doc) {
+    // We safely cast the data to a Map, providing an empty map fallback if null.
+    // This fixes the "type 'DocumentSnapshot<Object?>' is not a subtype of..." error.
+    final data = doc.data() as Map<String, dynamic>? ?? {};
+
     return MemberModel(
       id: doc.id,
       name: data['name'] ?? '',
@@ -28,7 +32,7 @@ class MemberModel {
   }
 
   /// Converts the MemberModel to a map for Firestore storage.
-  Map<String, dynamic> toFirestore() { // FIX 2: Renamed
+  Map<String, dynamic> toFirestore() {
     return {
       // The ID is the document key, so it's not needed inside the document data.
       'name': name,

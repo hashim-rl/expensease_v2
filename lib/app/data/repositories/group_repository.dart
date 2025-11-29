@@ -126,7 +126,9 @@ class GroupRepository {
     }
   }
 
-  Future<void> createGroup(String groupName, String groupType, {String currency = 'USD'}) async {
+  // --- UPDATED METHOD: FIXES GROUP CREATION BUG ---
+  Future<void> createGroup(String groupName, String groupType,
+      {String currency = 'USD'}) async {
     final user = _auth.currentUser;
     if (user == null) {
       debugPrint(
@@ -134,59 +136,45 @@ class GroupRepository {
       throw Exception("User not logged in");
     }
 
-    final userDocRef =
-    _firebaseProvider.firestore.collection('users').doc(user.uid);
-
+    // 1. Prepare references
     final newGroupRef = _firebaseProvider.groupsCollection.doc();
-    final newMemberRef =
-    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
 
-    final userDocSnapshot = await userDocRef.get();
-    String userName;
-
-    if (!userDocSnapshot.exists) {
-      debugPrint(
-          "--- REPO TRACE: User doc not found during group creation. Self-healing user profile.");
-      final fullName = user.displayName ?? user.email ?? 'New User';
-      final selfHealedUser = UserModel(
-        uid: user.uid,
-        email: user.email ?? 'No Email',
-        fullName: fullName,
-        nickname: fullName,
-        groups: {newGroupRef.id: true},
-      );
-      await userDocRef.set(selfHealedUser.toFirestore());
-      userName = selfHealedUser.nickname;
-    } else {
-      final data = userDocSnapshot.data();
-      userName = data?['nickname'] as String? ??
-          data?['fullName'] as String? ??
-          'Member';
-    }
-
+    // 2. Create the Group Model
     final newGroup = GroupModel(
       id: newGroupRef.id,
       name: groupName,
       type: groupType,
       currency: currency,
-      memberIds: [user.uid],
+      memberIds: [user.uid], // This is what the app uses to find the group
       createdAt: Timestamp.now(),
     );
 
+    // 3. Prepare the Admin Member object
+    // Using a safe fallback for the name
+    final creatorName =
+        user.displayName ?? user.email?.split('@')[0] ?? 'Admin';
     final creatorAsMember = MemberModel(
       id: user.uid,
-      name: userName,
+      name: creatorName,
       email: user.email,
       role: 'Admin',
     );
 
+    // 4. Execute Batch (Atomic Operation)
     final batch = _firebaseProvider.firestore.batch();
+
+    // Set Group Data
     batch.set(newGroupRef, newGroup.toFirestore());
+
+    // Set Member Data (in subcollection)
+    final newMemberRef =
+    _firebaseProvider.membersCollection(newGroupRef.id).doc(user.uid);
     batch.set(newMemberRef, creatorAsMember.toFirestore());
 
-    if (userDocSnapshot.exists) {
-      batch.update(userDocRef, {'groups.${newGroupRef.id}': true});
-    }
+    // --- REMOVED: The risky batch.update on userDocRef ---
+    // We removed the line that tried to update 'users/{uid}' because it was
+    // causing crashes if the 'groups' map didn't exist, and is not needed
+    // for your current read strategy (arrayContains).
 
     await batch.commit();
     debugPrint(
